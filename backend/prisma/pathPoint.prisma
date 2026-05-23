@@ -1,0 +1,16 @@
+model PathPoint {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @db.Uuid
+  userId    String   @db.Uuid
+  latitude  Float
+  longitude Float
+  timestamp DateTime
+  accuracy  Float?    // GPS accuracy in metres (optional)
+  isSynced  Boolean  @default(false) // for offline queue handling
+
+  trip      Trip     @relation(fields: [tripId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([tripId, userId, timestamp])
+  @@index([tripId, timestamp(sort: Asc)])
+}

@@ -1,0 +1,12 @@
+model TripMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @db.Uuid
+  userId    String   @db.Uuid
+  joinedAt  DateTime @default(now())
+  color     String   @default("#3388ff") // unique colour per user for map overlay
+
+  trip      Trip     @relation(fields: [tripId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([tripId, userId])
+}

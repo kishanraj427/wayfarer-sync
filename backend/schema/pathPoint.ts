@@ -1,0 +1,25 @@
+import z from "zod";
+
+export const pathPointSchema = z.object({
+  id: z.uuid().readonly(),
+  tripId: z.uuid(),
+  userId: z.uuid(),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  timestamp: z.iso.datetime(),
+  accuracy: z.number().min(0).optional(),
+});
+
+export const pathPointBatchSchema = z.object({
+  points: z.array(pathPointSchema).min(1).max(200),
+});
+
+// For GET query parameters
+export const pathQuerySchema = z.object({
+  since: z.iso.datetime().optional(),
+  userId: z.uuid().optional(),
+});
+
+export const batchSuccessDataSchema = z.object({
+  count: z.number(),
+});

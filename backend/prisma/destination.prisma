@@ -1,0 +1,13 @@
+model Destination {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @db.Uuid
+  name      String
+  latitude  Float
+  longitude Float
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  trip      Trip     @relation(fields: [tripId], references: [id])
+
+  @@index([tripId, order])
+}
