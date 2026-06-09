@@ -5,8 +5,16 @@ import jwt from "jsonwebtoken";
 import prisma from "./prisma";
 import { roomManager } from "./services/websocket.manager";
 import * as pathService from "./services/pathPoint.service";
+import { z } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+
+const locationUpdatePayloadSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  timestamp: z.iso.datetime(),
+  accuracy: z.number().min(0).nullable().optional(),
+});
 
 export const initWebSocketServer = (server: HttpServer): void => {
   // Create a headless WebSocket server instance
@@ -43,9 +51,12 @@ export const initWebSocketServer = (server: HttpServer): void => {
         where: {
           tripId_userId: { tripId, userId },
         },
+        include: {
+          trip: true,
+        },
       });
 
-      if (!member) {
+      if (!member || member.trip.deletedAt !== null) {
         socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
         socket.destroy();
         return;
@@ -75,7 +86,8 @@ export const initWebSocketServer = (server: HttpServer): void => {
         const data = JSON.parse(message);
 
         if (data.type === "location_update") {
-          const { latitude, longitude, timestamp, accuracy } = data.payload;
+          const parsedPayload = locationUpdatePayloadSchema.parse(data.payload);
+          const { latitude, longitude, timestamp, accuracy } = parsedPayload;
 
           // A. Broadcast position immediately to everyone else in the group
           roomManager.broadcastToRoom(tripId, userId, "member_location", {
@@ -95,7 +107,7 @@ export const initWebSocketServer = (server: HttpServer): void => {
                 latitude,
                 longitude,
                 timestamp,
-                accuracy,
+                accuracy: accuracy ?? undefined,
               },
             ])
             .catch((err) =>

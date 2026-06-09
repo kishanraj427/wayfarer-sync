@@ -20,6 +20,8 @@ wayfarer-sync/
 │   └── schema/         # Shared Zod validation schemas
 │
 └── mobile/             # Collaborative Flutter mobile application (client)
+    ├── lib/            # Dart source files (features, core providers, etc.)
+    └── pubspec.yaml    # Flutter project packages and assets configuration
 ```
 
 ---
@@ -35,12 +37,13 @@ An ultra-fast real-time service powering API endpoints, WebSocket rooms, and dat
 *   **Cache & Queue**: Valkey (Redis-compatible) for real-time pub/sub and high-throughput queues.
 *   **Real-time Protocol**: WebSocket server (`ws`) handling live client location broadcasts.
 
-### 2. [Mobile Application](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/mobile) *(Work in progress)*
+### 2. [Mobile Application](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/mobile)
 A multi-platform client built using [Flutter](https://flutter.dev) tailored for mobile-only collaborative travel navigation.
 
-*   Offline-first caching of trip data and static itinerary maps.
-*   Queue-based batch GPS breadcrumb uploads for offline synchronization.
-*   Real-time member tracking via WebSocket broadcasts.
+*   **State Management**: Riverpod (`flutter_riverpod`) for reactive state and data streams.
+*   **Local Store**: Drift (reactive SQLite layer) for offline-first GPS coordinate logging.
+*   **Mapping**: `flutter_map` with OpenStreetMap tile layers.
+*   **Networking**: Native HTTP Client + WebSocket channels.
 
 ---
 
@@ -49,13 +52,13 @@ A multi-platform client built using [Flutter](https://flutter.dev) tailored for 
 ### Prerequisites
 *   **Bun** (v1.3.6 or newer)
 *   **Docker & Docker Compose**
-*   **Flutter SDK** (for the mobile client)
+*   **Flutter SDK** (configured with Android/iOS tools)
 
 ---
 
 ### Running the Backend
 
-For detailed setup instructions, see the [Backend README](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/backend/README.md). 
+For detailed setup instructions, see the [Backend README](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/backend/README.md).
 
 1.  **Navigate to the backend directory**:
     ```bash
@@ -97,17 +100,28 @@ For detailed setup instructions, see the [Backend README](file:///C:/Users/Raj%2
 
 ### Running the Mobile Client
 
-*(Instructions to be finalized once the mobile client project structure is initialized.)*
+For detailed setup instructions, see the [Mobile README](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/mobile/README.md).
 
 1.  **Navigate to the mobile directory**:
     ```bash
     cd mobile
     ```
-2.  **Get packages**:
+
+2.  **Install Flutter dependencies**:
     ```bash
     flutter pub get
     ```
-3.  **Run on physical device / emulator**:
+
+3.  **Generate local DB schema**:
+    ```bash
+    dart run build_runner build --delete-conflicting-outputs
+    ```
+
+4.  **Configure Server Endpoint connection**:
+    *   If using an **Android Emulator**, verify that connections map to the default bridge address `10.0.2.2:3000`.
+    *   If using an **iOS Simulator** or physical device on the same local network, use the server's local IP (e.g. `192.168.1.X:3000`).
+
+5.  **Run the application**:
     ```bash
     flutter run
     ```

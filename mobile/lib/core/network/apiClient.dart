@@ -24,7 +24,7 @@ class ApiClient {
     
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (body['success'] == true) {
-        return body['data'];
+        return body.containsKey('data') ? body['data'] : body;
       }
     }
     

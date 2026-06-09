@@ -6,6 +6,7 @@ import 'package:wayfarer_sync_mobile/features/tracking/models/realtimeEvent.dart
 import '../providers/liveTrackingProviders.dart';
 import '../providers/mapStateProvider.dart';
 import '../services/locationTrackingService.dart';
+import '../services/syncService.dart';
 
 class TripMapScreen extends ConsumerStatefulWidget {
   final String tripId;
@@ -23,6 +24,7 @@ class TripMapScreen extends ConsumerStatefulWidget {
 
 class _TripMapScreenState extends ConsumerState<TripMapScreen> {
   final MapController _mapController = MapController();
+  bool _hasCentered = false;
 
   @override
   void initState() {
@@ -46,6 +48,15 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
   @override
   Widget build(BuildContext context) {
     final liveMarkerMap = ref.watch(mapStateProvider);
+
+    // Auto-center map on first coordinates received
+    final userPosition = liveMarkerMap.positions[widget.currentUserId];
+    if (!_hasCentered && userPosition != null) {
+      _hasCentered = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _mapController.move(userPosition, 15.0);
+      });
+    }
 
     // Listen to the real-time WebSocket channel for updates from other members
     ref.listen<
@@ -97,13 +108,31 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.sync),
-            onPressed: () {
-              // Trigger a manual catch-up batch sync if required
+            onPressed: () async {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Checking synchronization status...'),
+                  content: Text('Starting synchronization...'),
+                  duration: Duration(seconds: 1),
                 ),
               );
+              try {
+                await ref.read(syncServiceProvider).synchronizeTripPaths(widget.tripId);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Synchronization complete.'),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Sync failed: $e'),
+                    ),
+                  );
+                }
+              }
             },
           ),
         ],
@@ -138,6 +167,21 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
           // 3. User Marker Avatars Layer (Pins live avatars over tracking heads)
           MarkerLayer(markers: userMarkers),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          final userPosition = liveMarkerMap.positions[widget.currentUserId];
+          if (userPosition != null) {
+            _mapController.move(userPosition, 15.0);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Current location not available yet.'),
+              ),
+            );
+          }
+        },
+        child: const Icon(Icons.my_location),
       ),
     );
   }

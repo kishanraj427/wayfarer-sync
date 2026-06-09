@@ -23,10 +23,30 @@ class SyncService {
       final pointIds = unsyncedPoints.map((pt) => pt.id).toList();
       await _db.markPointsAsSynced(pointIds);
 
+      // ignore: avoid_print
       print('Sync successful: ${pointIds.length} points updated.');
     } catch (e) {
       // Log errors safely (e.g. if the user is still in a dead zone, it retries later)
+      // ignore: avoid_print
       print('Sync cycle deferred: $e');
+    }
+  }
+
+  /// Finds all unsynced points across all trips and synchronizes them
+  Future<void> synchronizeAll() async {
+    try {
+      final unsyncedPoints = await (_db.select(_db.localPathPoints)
+            ..where((t) => t.isSynced.equals(false)))
+          .get();
+      if (unsyncedPoints.isEmpty) return;
+
+      final tripIds = unsyncedPoints.map((pt) => pt.tripId).toSet();
+      for (final tripId in tripIds) {
+        await synchronizeTripPaths(tripId);
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('Sync all deferral: $e');
     }
   }
 }

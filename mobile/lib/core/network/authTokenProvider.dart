@@ -1,19 +1,54 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Manage user JWT token state in memory.
-/// (In production, replace this with flutter_secure_storage for encryption)
 class AuthTokenNotifier extends StateNotifier<String?> {
-  AuthTokenNotifier() : super(null);
+  // ignore: use_super_parameters
+  AuthTokenNotifier(String? initialToken) : super(initialToken);
 
-  void setToken(String token) => state = token;
-  void clearToken() => state = null;
+  static const tokenKey = 'jwt_token';
+
+  Future<void> setToken(String token) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(tokenKey, token);
+      state = token;
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error saving auth token: $e');
+    }
+  }
+
+  Future<void> clearToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(tokenKey);
+      state = null;
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error clearing auth token: $e');
+    }
+  }
 
   bool get isAuthenticated => state != null;
 }
 
-final authTokenProvider = StateNotifierProvider<AuthTokenNotifier, String?>((
-  ref,
-) {
-  return AuthTokenNotifier();
+final authTokenProvider = StateNotifierProvider<AuthTokenNotifier, String?>((ref) {
+  return AuthTokenNotifier(null);
+});
+
+final currentUserIdProvider = Provider<String?>((ref) {
+  final token = ref.watch(authTokenProvider);
+  if (token == null) return null;
+  try {
+    final parts = token.split('.');
+    if (parts.length != 3) return null;
+    var normalized = base64Url.normalize(parts[1]);
+    final payloadString = utf8.decode(base64Url.decode(normalized));
+    final payload = jsonDecode(payloadString) as Map<String, dynamic>;
+    return payload['userId'] as String?;
+  } catch (e) {
+    return null;
+  }
 });

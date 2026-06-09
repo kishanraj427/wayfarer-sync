@@ -7,6 +7,8 @@ import '../../../core/storage/localDatabase.dart';
 import '../../../core/storage/storageProviders.dart';
 import 'locationPermissionHandler.dart';
 import 'trackingSocketService.dart';
+import 'package:latlong2/latlong.dart';
+import '../providers/mapStateProvider.dart';
 
 class LocationTrackingService {
   final Ref _ref;
@@ -63,6 +65,12 @@ class LocationTrackingService {
           latitude: position.latitude,
           longitude: position.longitude,
           accuracy: position.accuracy,
+        );
+
+    // -- TARGET C: Update Local Map Render State --
+    _ref.read(mapStateProvider.notifier).updateMemberPosition(
+          userId,
+          LatLng(position.latitude, position.longitude),
         );
 
     print('GPS breadcrumb captured local & socket: ${position.latitude}, ${position.longitude}');

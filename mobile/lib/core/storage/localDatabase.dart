@@ -46,7 +46,7 @@ class LocalPathPoints extends Table {
 // --- 2. Your Main Database Class ---
 @DriftDatabase(tables: [LocalTrips, LocalTripMembers, LocalPathPoints])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection()); 
+  AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection()); 
 
   @override
   int get schemaVersion => 1;

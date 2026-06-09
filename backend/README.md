@@ -10,7 +10,7 @@ Wayfarer Sync is a real-time, offline-first backend service built to power a mob
 | :--- | :--- | :--- |
 | **Runtime** | **Bun** | Ultra-fast JS/TS runtime, package manager, and bundler |
 | **Server Framework** | **Express** | Lightweight HTTP server router |
-| **Database ORM** | **Prisma** (v7.6+) | Type-safe schema builder using split modular schema files |
+| **Database ORM** | **Prisma** (v7.6+) | Type-safe schema builder using schema directory configurations |
 | **Databases** | **PostgreSQL & Valkey** | Relational data persistence & Redis-compatible queue/cache |
 | **Real-time** | **ws** (WebSocket) | High-performance client-server event loop |
 | **Schema Validation** | **Zod** (v4) | Single source of truth for runtime validation and type inference |
@@ -63,7 +63,7 @@ backend/
 - **Docker & Docker Compose**
 
 ### 1. Setup Environment Configuration
-Create a `.env` file in the root directory:
+Create a `.env` file in the root backend directory:
 ```env
 DATABASE_URL="postgresql://wayfarer:wayfarer123@localhost:5433/wayfarer"
 JWT_SECRET="your_secure_jwt_secret_key"
@@ -94,6 +94,62 @@ bun run setup
 bun run dev
 ```
 The server will start on `http://localhost:3000`. You can access interactive Swagger documentation at `http://localhost:3000/docs`.
+
+---
+
+## 🗄️ Prisma 6/7 Modular Schemas
+
+This project leverages Prisma's native **schema directory support** (introduced in Prisma 5.15+ and stabilized in 6+). 
+
+In `prisma.config.ts`, the schema target is set as a directory:
+```typescript
+export default defineConfig({
+  schema: "prisma/",
+  // ...
+});
+```
+
+All schema definitions under the `prisma/` folder (such as `user.prisma`, `trip.prisma`, and `pathPoint.prisma`) are parsed together automatically. You do **not** need a merge step or third-party compiler. Simply run `bun run setup` (or `prisma db push`) to build and apply the combined schema model.
+
+---
+
+## 📖 API Endpoint Catalog
+
+### Authentication
+*   **`POST /api/auth/signup`**
+    *   *Payload*: `{ "email": "user@example.com", "password": "securepassword" }`
+    *   *Response*: User profile along with authorization JWT token.
+*   **`POST /api/auth/login`**
+    *   *Payload*: `{ "email": "user@example.com", "password": "securepassword" }`
+    *   *Response*: Authorization JWT token.
+
+### Trips
+*   **`GET /api/trip`** [Auth Required]
+    *   *Response*: Returns a list of all active (non-deleted) trips.
+*   **`POST /api/trip`** [Auth Required]
+    *   *Payload*: `{ "title": "Summer Adventure", "startedAt": "2026-06-07T00:00:00Z", "destinations": [] }`
+    *   *Response*: The created trip object including its assigned members.
+*   **`GET /api/trip/:id`** [Auth Required]
+    *   *Response*: Specific trip configuration by UUID.
+*   **`PUT /api/trip/:id`** [Auth Required]
+    *   *Payload*: `{ "title": "Updated Trip Title" }`
+    *   *Response*: The updated trip.
+*   **`DELETE /api/trip/:id`** [Auth Required]
+    *   *Response*: Marks the trip as ended and soft-deletes it.
+*   **`POST /api/trip/:id/join`** [Auth Required]
+    *   *Response*: Joins the current user to the trip and allocates a unique map trail color.
+*   **`GET /api/trip/:id/members`** [Auth Required]
+    *   *Response*: Returns membership detail arrays and user descriptors.
+
+### Breadcrumbs & Trailing (Offline Sync)
+*   **`POST /api/trip/:id/paths/batch`** [Auth Required]
+    *   *Payload*: `{ "points": [ { "latitude": 37.77, "longitude": -122.41, "timestamp": "2026-06-07T15:00:00.000Z", "accuracy": 5.2 } ] }`
+    *   *Response*: `{ "success": true, "data": { "count": 1 } }`
+*   **`GET /api/trip/:id/paths`** [Auth Required]
+    *   *Query Parameters*:
+        *   `userId` (Optional): Filter track points by user.
+        *   `since` (Optional): ISO timestamp to fetch incremental points.
+    *   *Response*: Array of historical coordinates.
 
 ---
 
