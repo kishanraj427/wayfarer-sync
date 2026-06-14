@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/network/apiUrl.dart';
 import '../../../core/network/apiClient.dart';
 import '../../../core/network/authTokenProvider.dart';
 
@@ -33,7 +34,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
     try {
       final client = ref.read(apiClientProvider);
-      final response = await client.post('/auth/signup', {
+      final response = await client.post(ApiUrl.signup, {
         'email': _emailController.text.trim(),
         'password': _passwordController.text,
       });

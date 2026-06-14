@@ -9,6 +9,8 @@ Wayfarer Sync is an offline-first, collaborative trip itinerary and real-time lo
 *   **Offline-First GPS Logging:** Collects background hardware coordinate streams via the `geolocator` subsystem, burning points directly into an offline SQLite engine before initiating network operations.
 *   **Dual-Path Synchronization:** Dispatches live movement frames over raw persistent WebSockets when network availability is stable, while gracefully queuing points locally to be sent in an optimized HTTP batch fallback array if connection drops.
 *   **Reactive UI Repainting:** Utilizes standard OpenStreetMap tile layers via `flutter_map`, repainting colored polyline tracks and live position markers reactively using unified Riverpod state providers.
+*   **Interactive Destination Pinning:** Support for searching and reverse geocoding locations via OpenStreetMap's Nominatim API, allowing users to map and pin a static destination to share when starting a trip.
+*   **Traveler Centering & Tracking:** Renders a horizontal scrollable row of active members on the live map overlay. Travelers can tap any member chip to center the map on their last reported location coordinates.
 
 ---
 
@@ -71,9 +73,8 @@ This command generates the missing [localDatabase.g.dart](file:///C:/Users/Raj%2
 ---
 
 ### 3. Server Configuration & Local Network Settings
-By default, the client points to `localhost:3000` inside:
-*   [apiClient.dart](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/mobile/lib/core/network/apiClient.dart#L8): `final String baseUrl = 'http://localhost:3000/api';`
-*   [trackingSocketService.dart](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/mobile/lib/features/tracking/services/trackingSocketService.dart#L12): `final String _wsBaseUrl = 'ws://localhost:3000';`
+By default, the client points to `http://192.168.1.7:3000` inside the central URL configuration file:
+*   [apiUrl.dart](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/mobile/lib/core/network/apiUrl.dart): contains `baseUrl` for HTTP requests and `wsBaseUrl` for WebSocket connections.
 
 To test on emulators/devices, adjust these addresses:
 *   **Android Emulator**: Change `localhost` to `10.0.2.2` (Android’s gateway loopback address to the host server).

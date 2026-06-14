@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/apiUrl.dart';
 import '../../../core/network/apiClient.dart';
 import '../../../core/storage/localDatabase.dart';
 
@@ -22,7 +23,7 @@ class PathRepository {
     };
 
     // Calls POST /api/trip/:id/paths/batch
-    final responseData = await _apiClient.post('/trip/$tripId/paths/batch', payload);
+    final responseData = await _apiClient.post(ApiUrl.uploadBatch(tripId), payload);
     
     // Returns the count integer parsed out of your backend batchSuccessDataSchema
     return responseData['count'] as int;

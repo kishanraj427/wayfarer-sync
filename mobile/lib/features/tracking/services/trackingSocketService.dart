@@ -1,15 +1,14 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wayfarer_sync_mobile/core/network/authTokenProvider.dart';
+import 'package:wayfarer_sync_mobile/core/network/apiUrl.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class TrackingSocketService {
   final Ref _ref;
   WebSocketChannel? _channel;
   
-  // Point this to your backend WS layer. 
-  // Note: Use 'ws://10.0.2.2:3000' if testing on the standard Android Emulator
-  final String _wsBaseUrl = 'ws://localhost:3000';
+  final String _wsBaseUrl = ApiUrl.wsBaseUrl;
 
   TrackingSocketService(this._ref);
 

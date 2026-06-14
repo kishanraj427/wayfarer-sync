@@ -6,6 +6,7 @@ import '../../features/tracking/screens/tripMapScreen.dart';
 import '../../features/auth/screens/loginScreen.dart';
 import '../../features/auth/screens/signupScreen.dart';
 import '../../features/trip/screens/tripsScreen.dart';
+import '../../features/trip/screens/createTripScreen.dart';
 
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -52,6 +53,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/trips',
         builder: (context, state) => const TripsScreen(),
+      ),
+      GoRoute(
+        path: '/create-trip',
+        builder: (context, state) => const CreateTripScreen(),
       ),
       GoRoute(
         path: '/trip/:tripId/map/:userId',

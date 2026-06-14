@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/network/apiUrl.dart';
 import '../../../core/network/apiClient.dart';
 import '../../../core/network/authTokenProvider.dart';
 
@@ -30,7 +31,7 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
 
     try {
       final client = ref.read(apiClientProvider);
-      final response = await client.get('/trip');
+      final response = await client.get(ApiUrl.trips);
       if (mounted) {
         setState(() {
           _trips = response as List<dynamic>;
@@ -55,28 +56,10 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
     }
   }
 
-  Future<void> _createTrip(String title) async {
-    try {
-      final client = ref.read(apiClientProvider);
-      await client.post('/trip', {
-        'title': title,
-        'startedAt': DateTime.now().toUtc().toIso8601String(),
-      });
-      _fetchTrips();
-    } catch (e) {
-      if (mounted) {
-        final errorMsg = e is ApiException ? e.message : e.toString();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create trip: $errorMsg')),
-        );
-      }
-    }
-  }
-
   Future<void> _joinTrip(String tripId) async {
     try {
       final client = ref.read(apiClientProvider);
-      await client.post('/trip/$tripId/join', {});
+      await client.post(ApiUrl.joinTrip(tripId), {});
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -92,35 +75,6 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
         );
       }
     }
-  }
-
-  void _showCreateTripDialog() {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create Trip'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Trip Name'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.trim().isNotEmpty) {
-                _createTrip(controller.text.trim());
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    ).then((_) => controller.dispose());
   }
 
   void _showJoinTripDialog() {
@@ -218,7 +172,7 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
           const SizedBox(height: 16),
           FloatingActionButton(
             heroTag: 'create',
-            onPressed: _showCreateTripDialog,
+            onPressed: () => context.push('/create-trip'),
             tooltip: 'Create Trip',
             child: const Icon(Icons.add),
           ),

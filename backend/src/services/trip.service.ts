@@ -45,7 +45,19 @@ export const createTrip = async (
 };
 
 export const getTripById = (id: string) => {
-  return prisma.trip.findUnique({ where: { id, deletedAt: null } });
+  return prisma.trip.findUnique({
+    where: { id, deletedAt: null },
+    include: {
+      destinations: true,
+      members: {
+        include: {
+          user: {
+            select: { id: true, email: true }
+          }
+        }
+      }
+    }
+  });
 };
 
 export const updateTripById = async (id: string, trip: { title: string }) => {

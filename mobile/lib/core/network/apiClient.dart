@@ -2,10 +2,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'authTokenProvider.dart';
+import 'apiUrl.dart';
 
 class ApiClient {
   final Ref _ref;
-  final String baseUrl = 'http://10.0.2.2:3000/api';
+  final String baseUrl = ApiUrl.baseUrl;
 
   ApiClient(this._ref);
 
