@@ -45,7 +45,7 @@ class TrackingSocketService {
         'latitude': latitude,
         'longitude': longitude,
         'timestamp': DateTime.now().toUtc().toIso8601String(),
-        if (accuracy != null) 'accuracy': accuracy,
+        'accuracy': ?accuracy,
       }
     };
 

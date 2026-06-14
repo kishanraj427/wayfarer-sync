@@ -1,0 +1,83 @@
+model Destination {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @db.Uuid
+  name      String
+  latitude  Float
+  longitude Float
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tripId, order])
+}
+
+model PathPoint {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @db.Uuid
+  userId    String   @db.Uuid
+  latitude  Float
+  longitude Float
+  timestamp DateTime
+  accuracy  Float? // GPS accuracy in metres (optional)
+  isSynced  Boolean  @default(false) // for offline queue handling
+
+  trip Trip @relation(fields: [tripId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([tripId, userId, timestamp])
+  @@index([tripId, timestamp(sort: Asc)])
+}
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model TripMember {
+  id       String   @id @default(uuid()) @db.Uuid
+  tripId   String   @db.Uuid
+  userId   String   @db.Uuid
+  joinedAt DateTime @default(now())
+  color    String   @default("#3388ff") // unique colour per user for map overlay
+
+  trip Trip @relation(fields: [tripId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([tripId, userId])
+}
+
+model Trip {
+  id           String        @id @default(uuid()) @db.Uuid
+  title        String
+  startedAt    DateTime      @db.Date
+  endedAt      DateTime?     @db.Date
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+  members      TripMember[]
+  pathPoints   PathPoint[]
+  destinations Destination[]
+}
+
+model User {
+  id          String       @id @default(uuid()) @db.Uuid
+  email       String       @unique
+  password    String // hashed
+  lastLoginAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  trips       TripMember[]
+  pathPoints  PathPoint[]
+}
