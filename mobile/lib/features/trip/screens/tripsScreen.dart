@@ -4,6 +4,14 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/apiUrl.dart';
 import '../../../core/network/apiClient.dart';
 import '../../../core/network/authTokenProvider.dart';
+import '../../../core/theme/appSemanticColors.dart';
+import '../../../core/theme/appTokens.dart';
+import '../../../core/widgets/contourBackground.dart';
+import '../../../core/widgets/inlineErrorBanner.dart';
+import '../../../core/widgets/primaryButton.dart';
+import '../../../core/widgets/skeletonBox.dart';
+import '../../../core/widgets/tripTicketCard.dart';
+import '../services/tripShare.dart';
 
 class TripsScreen extends ConsumerStatefulWidget {
   const TripsScreen({super.key});
@@ -112,53 +120,16 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Trips'),
+        title: const Text('My trips'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
+            tooltip: 'Log out',
             onPressed: () => ref.read(authTokenProvider.notifier).clearToken(),
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _fetchTrips,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
-              : _trips.isEmpty
-                  ? const Center(child: Text('No active trips found.'))
-                  : RefreshIndicator(
-                      onRefresh: _fetchTrips,
-                      child: ListView.builder(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: _trips.length,
-                        itemBuilder: (context, index) {
-                          final trip = _trips[index];
-                          return Card(
-                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: ListTile(
-                              title: Text(trip['title'] ?? 'Unnamed Trip'),
-                              subtitle: Text('ID: ${trip['id']}'),
-                              trailing: const Icon(Icons.arrow_forward),
-                              onTap: () {
-                                context.push('/trip/${trip['id']}/map/$userId');
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+      body: _buildBody(userId),
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
@@ -166,18 +137,132 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
           FloatingActionButton(
             heroTag: 'join',
             onPressed: _showJoinTripDialog,
-            tooltip: 'Join Trip',
+            tooltip: 'Join trip',
             child: const Icon(Icons.group_add),
           ),
-          const SizedBox(height: 16),
-          FloatingActionButton(
+          const SizedBox(height: AppSpace.md),
+          FloatingActionButton.extended(
             heroTag: 'create',
             onPressed: () => context.push('/create-trip'),
-            tooltip: 'Create Trip',
-            child: const Icon(Icons.add),
+            icon: const Icon(Icons.add),
+            label: const Text('New trip'),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBody(String userId) {
+    if (_isLoading) {
+      return ListView.separated(
+        padding: const EdgeInsets.all(AppSpace.md),
+        itemCount: 5,
+        separatorBuilder: (_, __) => const SizedBox(height: AppSpace.md),
+        itemBuilder: (context, index) =>
+            const SkeletonBox(height: 84, radius: AppRadius.md),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpace.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InlineErrorBanner(message: _errorMessage!),
+              const SizedBox(height: AppSpace.md),
+              PrimaryButton(
+                label: 'Retry',
+                icon: Icons.refresh,
+                onPressed: _fetchTrips,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_trips.isEmpty) {
+      final textTheme = Theme.of(context).textTheme;
+      return ContourBackground(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.map_outlined, size: 48, color: context.semantic.route),
+                const SizedBox(height: AppSpace.md),
+                Text('No trips yet', style: textTheme.headlineSmall),
+                const SizedBox(height: AppSpace.sm),
+                Text(
+                  'Start a trip and share the ID so your people can join.',
+                  style: textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpace.lg),
+                PrimaryButton(
+                  label: 'Start a trip',
+                  icon: Icons.add,
+                  onPressed: () => context.push('/create-trip'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchTrips,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(AppSpace.md),
+        itemCount: _trips.length,
+        separatorBuilder: (_, __) => const SizedBox(height: AppSpace.md),
+        itemBuilder: (context, index) {
+          final trip = _trips[index];
+          final tripId = trip['id'] as String;
+          final title = trip['title'] as String? ?? 'Unnamed trip';
+          return _FadeInItem(
+            index: index,
+            child: TripTicketCard(
+              title: title,
+              tripId: tripId,
+              memberColors: const [],
+              onTap: () => context.push('/trip/$tripId/map/$userId'),
+              onShare: () => shareTrip(tripId: tripId, title: title),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Entrance animation for list items — a short fade + rise, disabled under
+/// the platform reduce-motion setting.
+class _FadeInItem extends StatelessWidget {
+  final int index;
+  final Widget child;
+  const _FadeInItem({required this.index, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).disableAnimations) return child;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 250 + index * 40),
+      curve: Curves.easeOut,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, (1 - value) * 12),
+          child: child,
+        ),
+      ),
+      child: child,
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,23 @@ import '../../features/auth/screens/loginScreen.dart';
 import '../../features/auth/screens/signupScreen.dart';
 import '../../features/trip/screens/tripsScreen.dart';
 import '../../features/trip/screens/createTripScreen.dart';
+
+/// Wraps a screen in a shared-axis (horizontal) transition for smooth,
+/// direction-aware navigation between routes.
+CustomTransitionPage<void> _transitionPage(GoRouterState state, Widget child) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return SharedAxisTransition(
+        animation: animation,
+        secondaryAnimation: secondaryAnimation,
+        transitionType: SharedAxisTransitionType.horizontal,
+        child: child,
+      );
+    },
+  );
+}
 
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -44,26 +62,29 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/login',
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) => _transitionPage(state, const LoginScreen()),
       ),
       GoRoute(
         path: '/signup',
-        builder: (context, state) => const SignupScreen(),
+        pageBuilder: (context, state) => _transitionPage(state, const SignupScreen()),
       ),
       GoRoute(
         path: '/trips',
-        builder: (context, state) => const TripsScreen(),
+        pageBuilder: (context, state) => _transitionPage(state, const TripsScreen()),
       ),
       GoRoute(
         path: '/create-trip',
-        builder: (context, state) => const CreateTripScreen(),
+        pageBuilder: (context, state) => _transitionPage(state, const CreateTripScreen()),
       ),
       GoRoute(
         path: '/trip/:tripId/map/:userId',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final tripId = state.pathParameters['tripId']!;
           final userId = state.pathParameters['userId']!;
-          return TripMapScreen(tripId: tripId, currentUserId: userId);
+          return _transitionPage(
+            state,
+            TripMapScreen(tripId: tripId, currentUserId: userId),
+          );
         },
       ),
     ],

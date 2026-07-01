@@ -16,10 +16,10 @@ The backend uses **Bun Test** for unit testing and WebSocket connection simulati
    ```bash
    bun test
    ```
-   *This runs WebSocket connection security, soft-deletion verification, and Zod validation tests using in-memory mocks.*
+   *This runs WebSocket connection security, soft-deletion verification, coordinate/batch-input Zod validation (`pathBatch.test.ts`), and schema validation tests using in-memory mocks.*
 
 ### Mobile Test Suite
-The Flutter mobile client uses standard unit/widget tests to verify authentication token persistence and local SQLite Drift database operations.
+The Flutter mobile client uses standard unit/widget tests to verify authentication token persistence, local SQLite Drift database operations, per-user live-trail map state (`map_state_provider_test.dart`), and the trip-share text builder (`trip_share_test.dart`).
 1. Navigate to the `mobile` workspace root:
    ```bash
    cd mobile

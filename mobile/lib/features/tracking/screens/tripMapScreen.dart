@@ -5,6 +5,10 @@ import 'package:latlong2/latlong.dart';
 import 'package:wayfarer_sync_mobile/features/tracking/models/realtimeEvent.dart';
 import '../../../core/network/apiUrl.dart';
 import '../../../core/network/apiClient.dart';
+import '../../../core/theme/appSemanticColors.dart';
+import '../../../core/theme/appTheme.dart';
+import '../../../core/theme/appTokens.dart';
+import '../../../core/widgets/glassPanel.dart';
 import '../providers/liveTrackingProviders.dart';
 import '../providers/mapStateProvider.dart';
 import '../services/locationTrackingService.dart';
@@ -80,7 +84,52 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
       final cleanHex = hexColor.replaceAll('#', '');
       return Color(int.parse('FF$cleanHex', radix: 16));
     } catch (_) {
-      return Colors.deepOrange;
+      return context.semantic.peerFallback;
+    }
+  }
+
+  Color _trailColorForUser(String userId) {
+    if (userId == widget.currentUserId) return context.semantic.selfMarker;
+    final member = _members.firstWhere(
+      (member) => member['userId'] == userId,
+      orElse: () => null,
+    );
+    final hexColor = member?['color'] as String?;
+    if (hexColor != null) return _getMemberColor(hexColor);
+    return context.semantic.peerFallback;
+  }
+
+  Future<void> _syncNow() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Starting synchronization...'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+    try {
+      await ref.read(syncServiceProvider).synchronizeTripPaths(widget.tripId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Synchronization complete.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sync failed: $e')),
+        );
+      }
+    }
+  }
+
+  void _recenterOnSelf() {
+    final userPosition = ref.read(mapStateProvider).positions[widget.currentUserId];
+    if (userPosition != null) {
+      _mapController.move(userPosition, 15.0);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Current location not available yet.')),
+      );
     }
   }
 
@@ -113,17 +162,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
       final position = entry.value;
       final isMe = userId == widget.currentUserId;
 
-      // Find user specific color allocated from trip membership
-      Color color = isMe ? Colors.blue : Colors.deepOrange;
-      if (_members.isNotEmpty) {
-        final memberObj = _members.firstWhere(
-          (m) => m['userId'] == userId,
-          orElse: () => null,
-        );
-        if (memberObj != null && memberObj['color'] != null) {
-          color = _getMemberColor(memberObj['color']);
-        }
-      }
+      final color = _trailColorForUser(userId);
 
       return Marker(
         point: position,
@@ -135,11 +174,15 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
+                border: Border.all(color: context.semantic.onMarker, width: 2),
               ),
-              child: const Padding(
-                padding: EdgeInsets.all(4.0),
-                child: Icon(Icons.navigation, size: 16, color: Colors.white),
+              child: Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: Icon(
+                  isMe ? Icons.person : Icons.navigation,
+                  size: 16,
+                  color: context.semantic.onMarker,
+                ),
               ),
             ),
           ],
@@ -163,11 +206,11 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
               SnackBar(content: Text('Destination: $name')),
             );
           },
-          child: const Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.flag, color: Colors.green, size: 36),
-              Icon(Icons.location_on_outlined, color: Colors.green, size: 12),
+              Icon(Icons.flag, color: context.semantic.destinationPin, size: 36),
+              Icon(Icons.location_on_outlined, color: context.semantic.destinationPin, size: 12),
             ],
           ),
         ),
@@ -178,36 +221,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_tripDetails?['title'] ?? 'Live Trip Map'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.sync),
-            onPressed: () async {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Starting synchronization...'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-              try {
-                await ref.read(syncServiceProvider).synchronizeTripPaths(widget.tripId);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Synchronization complete.'),
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Sync failed: $e')),
-                  );
-                }
-              }
-            },
-          ),
-        ],
+        title: Text(_tripDetails?['title'] ?? 'Live trip'),
       ),
       body: Stack(
         children: [
@@ -223,91 +237,116 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                 userAgentPackageName: 'com.wayfarersync.mobile',
               ),
               PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: liveMarkerMap.positions.values.toList(),
-                    color: const Color(0xFF3388FF),
-                    strokeWidth: 4.0,
-                  ),
-                ],
+                polylines: liveMarkerMap.trails.entries
+                    .where((entry) => entry.value.length >= 2)
+                    .map((entry) => Polyline(
+                          points: entry.value,
+                          color: _trailColorForUser(entry.key),
+                          strokeWidth: 4.0,
+                        ))
+                    .toList(),
               ),
               MarkerLayer(markers: allMarkers),
             ],
           ),
           if (!_isLoadingDetails && _members.isNotEmpty)
             Positioned(
-              top: 16,
-              left: 16,
-              right: 16,
-              child: SizedBox(
-                height: 48,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _members.length,
-                  itemBuilder: (context, index) {
-                    final member = _members[index];
-                    final userId = member['userId'] as String;
-                    final userEmail = member['user']?['email'] as String? ?? 'User';
-                    final isMe = userId == widget.currentUserId;
-                    final label = isMe ? 'Me' : _getEmailPrefix(userEmail);
-                    final hexColor = member['color'] as String? ?? '#FF5722';
-                    final color = _getMemberColor(hexColor);
-                    
-                    final hasLocation = liveMarkerMap.positions.containsKey(userId);
+              top: AppSpace.md,
+              left: AppSpace.md,
+              right: AppSpace.md,
+              child: GlassPanel(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpace.sm,
+                  vertical: AppSpace.xs,
+                ),
+                child: SizedBox(
+                  height: 44,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _members.length,
+                    itemBuilder: (context, index) {
+                      final member = _members[index];
+                      final userId = member['userId'] as String;
+                      final userEmail = member['user']?['email'] as String? ?? 'User';
+                      final isMe = userId == widget.currentUserId;
+                      final label = isMe ? 'Me' : _getEmailPrefix(userEmail);
+                      final hexColor = member['color'] as String? ?? '#FF5722';
+                      final color = _getMemberColor(hexColor);
 
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: ActionChip(
-                        avatar: CircleAvatar(
-                          backgroundColor: color,
-                          radius: 12,
-                          child: Icon(
-                            isMe ? Icons.person : Icons.navigation,
-                            size: 10,
-                            color: Colors.white,
+                      final hasLocation = liveMarkerMap.positions.containsKey(userId);
+
+                      return Padding(
+                        padding: const EdgeInsets.only(right: AppSpace.sm),
+                        child: ActionChip(
+                          avatar: CircleAvatar(
+                            backgroundColor: color,
+                            radius: 12,
+                            child: Icon(
+                              isMe ? Icons.person : Icons.navigation,
+                              size: 10,
+                              color: context.semantic.onMarker,
+                            ),
                           ),
+                          label: Text(
+                            label,
+                            style: monoData(
+                              context,
+                              size: 12,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          side: BorderSide(
+                            color: hasLocation
+                                ? context.semantic.signalOnline
+                                : context.semantic.hairline,
+                            width: hasLocation ? 2.0 : 1.0,
+                          ),
+                          onPressed: () {
+                            if (hasLocation) {
+                              final pos = liveMarkerMap.positions[userId]!;
+                              _mapController.move(pos, 15.0);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('No location updates from $label yet.'),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          },
                         ),
-                        label: Text(label),
-                        backgroundColor: Colors.white.withOpacity(0.9),
-                        side: BorderSide(
-                          color: hasLocation ? color : Colors.grey.shade300,
-                          width: hasLocation ? 2.0 : 1.0,
-                        ),
-                        onPressed: () {
-                          if (hasLocation) {
-                            final pos = liveMarkerMap.positions[userId]!;
-                            _mapController.move(pos, 15.0);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('No location updates from $label yet.'),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          final userPosition = liveMarkerMap.positions[widget.currentUserId];
-          if (userPosition != null) {
-            _mapController.move(userPosition, 15.0);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Current location not available yet.'),
+          Positioned(
+            right: AppSpace.md,
+            bottom: AppSpace.md,
+            child: SafeArea(
+              top: false,
+              child: GlassPanel(
+                padding: const EdgeInsets.all(AppSpace.xs),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.sync),
+                      tooltip: 'Sync offline points',
+                      onPressed: _syncNow,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.my_location),
+                      tooltip: 'Recenter on me',
+                      onPressed: _recenterOnSelf,
+                    ),
+                  ],
+                ),
               ),
-            );
-          }
-        },
-        child: const Icon(Icons.my_location),
+            ),
+          ),
+        ],
       ),
     );
   }

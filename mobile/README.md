@@ -8,9 +8,11 @@ Wayfarer Sync is an offline-first, collaborative trip itinerary and real-time lo
 
 *   **Offline-First GPS Logging:** Collects background hardware coordinate streams via the `geolocator` subsystem, burning points directly into an offline SQLite engine before initiating network operations.
 *   **Dual-Path Synchronization:** Dispatches live movement frames over raw persistent WebSockets when network availability is stable, while gracefully queuing points locally to be sent in an optimized HTTP batch fallback array if connection drops.
-*   **Reactive UI Repainting:** Utilizes standard OpenStreetMap tile layers via `flutter_map`, repainting colored polyline tracks and live position markers reactively using unified Riverpod state providers.
+*   **Reactive UI Repainting:** Utilizes standard OpenStreetMap tile layers via `flutter_map`, repainting a **per-member colored polyline trail** (each traveler's own ordered path) and live position markers reactively using unified Riverpod state providers.
 *   **Interactive Destination Pinning:** Support for searching and reverse geocoding locations via OpenStreetMap's Nominatim API, allowing users to map and pin a static destination to share when starting a trip.
 *   **Traveler Centering & Tracking:** Renders a horizontal scrollable row of active members on the live map overlay. Travelers can tap any member chip to center the map on their last reported location coordinates.
+*   **Trip Sharing & Joining:** After creating a trip, a confirmation dialog lets the owner copy the trip ID or send it through the native OS share sheet (`share_plus`); any trip in the dashboard is shareable via a per-card action. Others join by pasting the shared trip ID into the Join dialog.
+*   **Adaptive Theming (Light + Dark):** A centralized, token-driven design system exposes light and dark themes (light by default, switchable at runtime and persisted). No visual value is hardcoded in screens — all colours resolve through the theme and a semantic-colour extension.
 
 ---
 
@@ -24,6 +26,11 @@ Wayfarer Sync is an offline-first, collaborative trip itinerary and real-time lo
 | **Mapping Engine** | **Flutter Map** | OpenStreetMap tile renderer with custom layers |
 | **Hardware Core** | **Geolocator Subsystem** | Background and foreground GPS coordinates parser |
 | **Networking** | **HTTP + WebSocket Channels** | Sync service pipelines and socket feeds |
+| **Routing** | **go_router** | Auth-aware redirects and shared-axis page transitions |
+| **Connectivity** | **connectivity_plus** | Detects network restoration to auto-trigger offline sync |
+| **Persistence** | **shared_preferences** | Stores the JWT session and the selected theme mode |
+| **Sharing** | **share_plus** | Native OS share sheet for trip invites |
+| **Design System** | **google_fonts + animations** | Themed typography and smooth motion/transitions |
 
 ---
 
@@ -34,13 +41,28 @@ The application layout follows a strict **feature-first** design system to maint
 ```text
 lib/
 ├── core/
-│   ├── network/       # API Rest Client, HTTP token interceptors, and Socket loops
-│   └── storage/       # Drift Database schema contracts & connection initializers
+│   ├── network/       # API Rest Client, HTTP token interceptors, GoRouter, and Socket loops
+│   ├── storage/       # Drift Database schema contracts & connection initializers
+│   ├── theme/         # Design tokens, semantic colours, light/dark themes, ThemeMode controller
+│   └── widgets/       # Reusable themed widgets (primary button, glass panel, ticket card, skeleton…)
 └── features/
-    ├── auth/          # Authentication state management workflows (Planned)
-    ├── trip/          # Trip lifecycle, creation, and member directory layers (Planned)
-    └── tracking/      # Interactive Map screens, live GPS trackers, and data repositories
+    ├── auth/          # Login & signup screens with persisted JWT session
+    ├── trip/          # Trip list, creation (map pin + Nominatim search), and share service
+    └── tracking/      # Interactive Map screens, live GPS trackers, sync, and data repositories
 ```
+
+---
+
+## 🎨 Design System & Theming
+
+The UI is driven entirely by a centralized theme so appearance can change in future releases without editing screens.
+
+*   **Tokens** (`core/theme/appTokens.dart`): the single source of literal colours (light + dark palettes) and the spacing/radius scale. Nothing else in the app declares raw hex or magic spacing.
+*   **Semantic colours** (`core/theme/appSemanticColors.dart`): a `ThemeExtension` for brand/semantic colours (route accent, glass surfaces, online signal, map-marker colours). Widgets read them via `context.semantic.<name>` so every value adapts between light and dark automatically.
+*   **Themes** (`core/theme/appTheme.dart`): `buildLightTheme()` / `buildDarkTheme()` produced from one shared builder, plus a `monoData()` helper for the monospaced geo-data signature (coordinates, trip IDs).
+*   **Theme mode** (`core/theme/themeModeController.dart`): a persisted `themeModeProvider` — light is the default; dark is fully built and switchable at runtime with no screen changes.
+
+**Contributor rule:** never hardcode a colour in a screen or widget. Use `Theme.of(context).colorScheme`, `context.semantic.*`, `Theme.of(context).textTheme` / `monoData(context)`, and the `AppSpace` / `AppRadius` tokens. Add a new token first if a value is missing.
 
 ---
 

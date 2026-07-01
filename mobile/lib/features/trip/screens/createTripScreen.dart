@@ -8,6 +8,12 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import '../../../core/network/apiUrl.dart';
 import '../../../core/network/apiClient.dart';
+import '../../../core/network/authTokenProvider.dart';
+import '../../../core/theme/appSemanticColors.dart';
+import '../../../core/theme/appTheme.dart';
+import '../../../core/theme/appTokens.dart';
+import '../../../core/widgets/primaryButton.dart';
+import '../services/tripShare.dart';
 
 class CreateTripScreen extends ConsumerStatefulWidget {
   const CreateTripScreen({super.key});
@@ -115,7 +121,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     setState(() => _isSaving = true);
     try {
       final client = ref.read(apiClientProvider);
-      await client.post(ApiUrl.trips, {
+      final createdTrip = await client.post(ApiUrl.trips, {
         'title': _titleController.text.trim(),
         'startedAt': DateTime.now().toUtc().toIso8601String(),
         'destinations': [
@@ -128,7 +134,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         ],
       });
       if (mounted) {
-        context.pop();
+        final tripId = createdTrip['id'] as String;
+        final tripTitle = createdTrip['title'] as String? ?? _titleController.text.trim();
+        await _showTripCreatedDialog(tripId, tripTitle);
       }
     } catch (e) {
       if (mounted) {
@@ -143,11 +151,60 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     }
   }
 
+  Future<void> _showTripCreatedDialog(String tripId, String tripTitle) async {
+    final userId = ref.read(currentUserIdProvider) ?? 'unknown';
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Trip created!'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Share this Trip ID so friends can join:'),
+            const SizedBox(height: 8),
+            SelectableText(
+              tripId,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.copy),
+            label: const Text('Copy'),
+            onPressed: () async {
+              await copyTripId(tripId);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Trip ID copied to clipboard.')),
+                );
+              }
+            },
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.share),
+            label: const Text('Share'),
+            onPressed: () => shareTrip(tripId: tripId, title: tripTitle),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.pushReplacement('/trip/$tripId/map/$userId');
+            },
+            child: const Text('Open Live Map'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Start New Trip'),
+        title: const Text('Start new trip'),
       ),
       body: Stack(
         children: [
@@ -177,9 +234,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       point: _selectedLocation!,
                       width: 45,
                       height: 45,
-                      child: const Icon(
+                      child: Icon(
                         Icons.location_on,
-                        color: Colors.red,
+                        color: context.semantic.route,
                         size: 40,
                       ),
                     ),
@@ -188,90 +245,101 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             ],
           ),
           Positioned(
-            top: 16,
-            left: 16,
-            right: 16,
+            top: AppSpace.md,
+            left: AppSpace.md,
+            right: AppSpace.md,
             child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               child: Padding(
-                padding: const EdgeInsets.all(12.0),
+                padding: const EdgeInsets.all(AppSpace.md),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     TextField(
                       controller: _titleController,
                       decoration: const InputDecoration(
-                        labelText: 'Trip Name',
-                        prefixIcon: Icon(Icons.edit),
-                        border: OutlineInputBorder(),
+                        labelText: 'Trip name',
+                        prefixIcon: Icon(Icons.edit_outlined),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpace.sm),
                     TextField(
                       controller: _searchController,
                       onChanged: _onSearchChanged,
                       decoration: InputDecoration(
-                        labelText: 'Search Destination',
+                        labelText: 'Search destination',
                         prefixIcon: const Icon(Icons.search),
                         suffixIcon: _isSearching
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                            ? const Padding(
+                                padding: EdgeInsets.all(14),
+                                child: SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
                               )
                             : null,
-                        border: const OutlineInputBorder(),
                       ),
                     ),
+                    if (_suggestions.isNotEmpty) ...[
+                      const SizedBox(height: AppSpace.sm),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 220),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _suggestions.length,
+                          itemBuilder: (context, index) {
+                            final suggestion = _suggestions[index];
+                            final name = suggestion['display_name'] ?? 'Unknown location';
+                            final lat = double.parse(suggestion['lat']);
+                            final lon = double.parse(suggestion['lon']);
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              onTap: () => _selectLocation(LatLng(lat, lon), name),
+                            );
+                          },
+                        ),
+                      ),
+                    ] else if (_selectedLocation != null) ...[
+                      const SizedBox(height: AppSpace.sm),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${_selectedLocation!.latitude.toStringAsFixed(5)}, '
+                          '${_selectedLocation!.longitude.toStringAsFixed(5)}',
+                          style: monoData(context, size: 12),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
           ),
-          if (_suggestions.isNotEmpty)
-            Positioned(
-              top: 172,
-              left: 16,
-              right: 16,
-              child: Card(
-                elevation: 4,
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _suggestions.length,
-                  itemBuilder: (context, index) {
-                    final suggestion = _suggestions[index];
-                    final name = suggestion['display_name'] ?? 'Unknown location';
-                    final lat = double.parse(suggestion['lat']);
-                    final lon = double.parse(suggestion['lon']);
-                    return ListTile(
-                      title: Text(
-                        name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      onTap: () => _selectLocation(LatLng(lat, lon), name),
-                    );
-                  },
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: Container(
+                padding: const EdgeInsets.all(AppSpace.md),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  border: Border(top: BorderSide(color: context.semantic.hairline)),
+                ),
+                child: PrimaryButton(
+                  label: 'Start trip',
+                  icon: Icons.flag_outlined,
+                  loading: _isSaving,
+                  onPressed: (_isSaving || _selectedLocation == null) ? null : _startTrip,
                 ),
               ),
-            ),
-          Positioned(
-            bottom: 24,
-            left: 16,
-            right: 16,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _startTrip,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: _isSaving
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('Start Trip', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
         ],

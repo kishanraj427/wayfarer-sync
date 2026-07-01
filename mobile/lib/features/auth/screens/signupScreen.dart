@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/apiUrl.dart';
 import '../../../core/network/apiClient.dart';
 import '../../../core/network/authTokenProvider.dart';
+import '../../../core/theme/appTokens.dart';
+import '../../../core/widgets/contourBackground.dart';
+import '../../../core/widgets/primaryButton.dart';
+import '../../../core/widgets/inlineErrorBanner.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -69,65 +73,70 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sign Up'),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 40.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _emailController,
-                enabled: !_isLoading,
-                decoration: const InputDecoration(
-                  labelText: 'Email Address',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.emailAddress,
+      body: ContourBackground(
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpace.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Create your account',
+                    style: textTheme.displaySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  Text(
+                    'Start a trip and bring your people along.',
+                    style: textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpace.xl),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpace.lg),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            controller: _emailController,
+                            enabled: !_isLoading,
+                            decoration: const InputDecoration(labelText: 'Email address'),
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                          const SizedBox(height: AppSpace.md),
+                          TextField(
+                            controller: _passwordController,
+                            enabled: !_isLoading,
+                            decoration: const InputDecoration(labelText: 'Password'),
+                            obscureText: true,
+                          ),
+                          if (_errorMessage != null) ...[
+                            const SizedBox(height: AppSpace.md),
+                            InlineErrorBanner(message: _errorMessage!),
+                          ],
+                          const SizedBox(height: AppSpace.lg),
+                          PrimaryButton(
+                            label: 'Sign up',
+                            loading: _isLoading,
+                            onPressed: _isLoading ? null : _signup,
+                          ),
+                          const SizedBox(height: AppSpace.sm),
+                          TextButton(
+                            onPressed: _isLoading ? null : () => context.go('/login'),
+                            child: const Text('Already have an account? Log in'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                enabled: !_isLoading,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
-                ),
-                obscureText: true,
-              ),
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
-                Text(
-                  _errorMessage!,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ],
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _signup,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: _isLoading
-                    ? const Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : const Text('Sign Up'),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: _isLoading ? null : () => context.go('/login'),
-                child: const Text('Already have an account? Log In'),
-              ),
-            ],
+            ),
           ),
         ),
       ),

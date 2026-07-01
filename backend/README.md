@@ -144,6 +144,7 @@ All schema definitions under the `prisma/` folder (such as `user.prisma`, `trip.
 ### Breadcrumbs & Trailing (Offline Sync)
 *   **`POST /api/trip/:id/paths/batch`** [Auth Required]
     *   *Payload*: `{ "points": [ { "latitude": 37.77, "longitude": -122.41, "timestamp": "2026-06-07T15:00:00.000Z", "accuracy": 5.2 } ] }`
+    *   Each point carries only coordinate fields (validated by `pathPointInputSchema`, 1–200 points). `tripId` (route param), `userId` (JWT), and the point `id` (database default) are assigned server-side — clients must **not** send them.
     *   *Response*: `{ "success": true, "data": { "count": 1 } }`
 *   **`GET /api/trip/:id/paths`** [Auth Required]
     *   *Query Parameters*:

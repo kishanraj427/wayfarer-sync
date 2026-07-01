@@ -1,20 +1,35 @@
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:latlong2/latlong.dart';
 
-/// Tracks the absolute latest coordinate received for each user map key
+/// Maximum number of coordinates retained per user trail to bound memory.
+const int maxTrailPoints = 500;
+
+/// Latest coordinate per user (for markers/centering) plus an ordered
+/// coordinate history per user (for polylines).
 class UserLiveMarkerState {
   final Map<String, LatLng> positions;
-  UserLiveMarkerState(this.positions);
+  final Map<String, List<LatLng>> trails;
+  UserLiveMarkerState(this.positions, this.trails);
 }
 
 class MapStateNotifier extends StateNotifier<UserLiveMarkerState> {
-  MapStateNotifier() : super(UserLiveMarkerState({}));
+  MapStateNotifier() : super(UserLiveMarkerState({}, {}));
 
-  /// Drops a fresh coordinate point into our active render state matrix
+  /// Records a fresh coordinate: updates the user's latest position and
+  /// appends it to their ordered trail, dropping the oldest beyond the cap.
   void updateMemberPosition(String userId, LatLng position) {
-    final updatedMap = Map<String, LatLng>.from(state.positions);
-    updatedMap[userId] = position;
-    state = UserLiveMarkerState(updatedMap);
+    final updatedPositions = Map<String, LatLng>.from(state.positions);
+    updatedPositions[userId] = position;
+
+    final updatedTrails = Map<String, List<LatLng>>.from(state.trails);
+    final existingTrail = updatedTrails[userId] ?? const <LatLng>[];
+    final nextTrail = [...existingTrail, position];
+    if (nextTrail.length > maxTrailPoints) {
+      nextTrail.removeRange(0, nextTrail.length - maxTrailPoints);
+    }
+    updatedTrails[userId] = nextTrail;
+
+    state = UserLiveMarkerState(updatedPositions, updatedTrails);
   }
 }
 

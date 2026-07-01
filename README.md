@@ -44,6 +44,8 @@ A multi-platform client built using [Flutter](https://flutter.dev) tailored for 
 *   **Local Store**: Drift (reactive SQLite layer) for offline-first GPS coordinate logging.
 *   **Mapping**: `flutter_map` with OpenStreetMap tile layers.
 *   **Networking**: Native HTTP Client + WebSocket channels.
+*   **Navigation**: `go_router` with auth-aware redirects and shared-axis transitions.
+*   **Design System**: token-driven light/dark theming (`google_fonts`, `animations`) with reusable widgets, plus native trip sharing (`share_plus`).
 
 ---
 
