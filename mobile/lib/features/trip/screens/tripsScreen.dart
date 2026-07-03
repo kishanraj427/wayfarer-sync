@@ -67,11 +67,18 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
   Future<void> _joinTrip(String tripId) async {
     try {
       final client = ref.read(apiClientProvider);
-      await client.post(ApiUrl.joinTrip(tripId), {});
-      
-      if (mounted) {
+      final response = await client.post(ApiUrl.joinTrip(tripId), {});
+      if (!mounted) return;
+
+      final alreadyMember = response is Map && response['alreadyMember'] == true;
+      if (alreadyMember) {
+        // Already part of this trip: go straight to the live map.
+        final userId = ref.read(currentUserIdProvider) ?? 'unknown';
+        context.push('/trip/$tripId/map/$userId');
+      } else {
+        // Newly joined: confirm and refresh the list so the trip appears.
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Successfully joined trip.')),
+          const SnackBar(content: Text('Joined trip. Open it to start tracking.')),
         );
         _fetchTrips();
       }

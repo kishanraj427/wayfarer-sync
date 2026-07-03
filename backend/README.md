@@ -137,7 +137,9 @@ All schema definitions under the `prisma/` folder (such as `user.prisma`, `trip.
 *   **`DELETE /api/trip/:id`** [Auth Required]
     *   *Response*: Marks the trip as ended and soft-deletes it.
 *   **`POST /api/trip/:id/join`** [Auth Required]
-    *   *Response*: Joins the current user to the trip and allocates a unique map trail color.
+    *   Joins the current user to the trip and allocates a map trail color. Idempotent: joining a trip you already belong to returns your existing membership.
+    *   `:id` must be a valid UUID (else `400`); the trip must exist and be active/non-deleted (else `404`).
+    *   *Response*: `{ "success": true, "data": { "member": { … }, "alreadyMember": false } }` — `alreadyMember` is `true` when the user was already a member (clients use it to open the trip map instead of re-joining).
 *   **`GET /api/trip/:id/members`** [Auth Required]
     *   *Response*: Returns membership detail arrays and user descriptors.
 

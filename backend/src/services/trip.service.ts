@@ -84,19 +84,30 @@ export const deleteTripById = async (id: string) => {
 };
 
 export const joinTripById = async (tripId: string, userId: string) => {
+  // Verify the trip exists and is still joinable before creating membership,
+  // otherwise a bad/deleted trip id would throw a foreign-key error (500).
+  const trip = await prisma.trip.findFirst({
+    where: { id: tripId, deletedAt: null, endedAt: null },
+    select: { id: true },
+  });
+  if (!trip) {
+    return null;
+  }
+
   // Check if already a member
   const existing = await prisma.tripMember.findUnique({
     where: { tripId_userId: { tripId, userId } },
+    include: { user: { select: { id: true, email: true } } },
   });
   if (existing) {
-    return existing;
+    return { member: existing, alreadyMember: true };
   }
 
   const member = await prisma.tripMember.create({
     data: { tripId, userId, color: getRandomColor() },
     include: { user: { select: { id: true, email: true } } },
   });
-  return member;
+  return { member, alreadyMember: false };
 };
 
 export const getTripMembers = async (tripId: string) => {

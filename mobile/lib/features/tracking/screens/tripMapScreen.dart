@@ -89,14 +89,17 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
   }
 
   Color _trailColorForUser(String userId) {
-    if (userId == widget.currentUserId) return context.semantic.selfMarker;
+    // Prefer the colour assigned to this member in the trip, so a traveler's
+    // own path is drawn in their trip colour (not a generic self colour).
     final member = _members.firstWhere(
       (member) => member['userId'] == userId,
       orElse: () => null,
     );
     final hexColor = member?['color'] as String?;
     if (hexColor != null) return _getMemberColor(hexColor);
-    return context.semantic.peerFallback;
+    return userId == widget.currentUserId
+        ? context.semantic.selfMarker
+        : context.semantic.peerFallback;
   }
 
   Future<void> _syncNow() async {
@@ -131,6 +134,16 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
         const SnackBar(content: Text('Current location not available yet.')),
       );
     }
+  }
+
+  static const double _minZoom = 2.0;
+  static const double _maxZoom = 18.0;
+  static const double _zoomStep = 1.0;
+
+  void _zoomBy(double delta) {
+    final camera = _mapController.camera;
+    final nextZoom = (camera.zoom + delta).clamp(_minZoom, _maxZoom).toDouble();
+    _mapController.move(camera.center, nextZoom);
   }
 
   @override
@@ -192,9 +205,9 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
 
     // Generate destinations static markers
     final destinationMarkers = _destinations.map((dest) {
-      final lat = dest['latitude'] as double;
-      final lon = dest['longitude'] as double;
-      final name = dest['name'] as String;
+      final lat = (dest['latitude'] as num).toDouble();
+      final lon = (dest['longitude'] as num).toDouble();
+      final name = dest['name'] as String? ?? 'Destination';
 
       return Marker(
         point: LatLng(lat, lon),
@@ -328,18 +341,29 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
               top: false,
               child: GlassPanel(
                 padding: const EdgeInsets.all(AppSpace.xs),
-                child: Row(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.sync),
-                      tooltip: 'Sync offline points',
-                      onPressed: _syncNow,
+                      icon: const Icon(Icons.add),
+                      tooltip: 'Zoom in',
+                      onPressed: () => _zoomBy(_zoomStep),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.remove),
+                      tooltip: 'Zoom out',
+                      onPressed: () => _zoomBy(-_zoomStep),
+                    ),
+                    Divider(height: AppSpace.sm, color: context.semantic.hairline),
                     IconButton(
                       icon: const Icon(Icons.my_location),
                       tooltip: 'Recenter on me',
                       onPressed: _recenterOnSelf,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.sync),
+                      tooltip: 'Sync offline points',
+                      onPressed: _syncNow,
                     ),
                   ],
                 ),

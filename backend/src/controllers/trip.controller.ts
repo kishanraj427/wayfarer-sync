@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import z from "zod";
 import * as tripService from "../services/trip.service";
 import { AuthRequest } from "@/middleware/auth.middleware";
 
@@ -127,17 +128,25 @@ export const joinTripById = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const trip = await tripService.joinTripById(id, userId);
+    const parsedTripId = z.uuid().safeParse(id);
+    if (!parsedTripId.success) {
+      return res.status(400).json({
+        message: "Trip ID must be a valid UUID",
+        success: false,
+      });
+    }
 
-    if (!trip) {
+    const result = await tripService.joinTripById(parsedTripId.data, userId);
+
+    if (!result) {
       return res.status(404).json({
-        message: "Trip not found",
+        message: "Trip not found or no longer active",
         success: false,
       });
     }
 
     res.status(200).json({
-      data: trip,
+      data: { member: result.member, alreadyMember: result.alreadyMember },
       success: true,
     });
   } catch (error) {
