@@ -125,7 +125,7 @@ All schema definitions under the `prisma/` folder (such as `user.prisma`, `trip.
 
 ### Trips
 *   **`GET /api/trip`** [Auth Required]
-    *   *Response*: Returns a list of all active (non-deleted) trips.
+    *   *Response*: Returns only the **caller's** trips (trips they are a member of, non-deleted), most-recent first (max 100). Each trip includes its `destinations`, `members` (with `user`), and `_count.members`.
 *   **`POST /api/trip`** [Auth Required]
     *   *Payload*: `{ "title": "Summer Adventure", "startedAt": "2026-06-07T00:00:00Z", "destinations": [] }`
     *   *Response*: The created trip object including its assigned members.
@@ -140,6 +140,10 @@ All schema definitions under the `prisma/` folder (such as `user.prisma`, `trip.
     *   Joins the current user to the trip and allocates a map trail color. Idempotent: joining a trip you already belong to returns your existing membership.
     *   `:id` must be a valid UUID (else `400`); the trip must exist and be active/non-deleted (else `404`).
     *   *Response*: `{ "success": true, "data": { "member": { … }, "alreadyMember": false } }` — `alreadyMember` is `true` when the user was already a member (clients use it to open the trip map instead of re-joining).
+*   **`POST /api/trip/:id/end`** [Auth Required]
+    *   Marks the trip as ended (`endedAt` set; `deletedAt` untouched) so it stays visible as "Ended". Live tracking stops and it can no longer be joined.
+    *   `:id` must be a valid UUID (else `400`); the caller must be a member of an existing, non-deleted trip (else `404`).
+    *   *Response*: `{ "success": true, "data": { …updated trip with destinations, members, _count… } }`
 *   **`GET /api/trip/:id/members`** [Auth Required]
     *   *Response*: Returns membership detail arrays and user descriptors.
 

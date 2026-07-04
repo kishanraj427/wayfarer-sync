@@ -11,6 +11,7 @@ Wayfarer Sync is an offline-first, collaborative trip itinerary and real-time lo
 *   **Reactive UI Repainting:** Utilizes standard OpenStreetMap tile layers via `flutter_map`, repainting a **per-member colored polyline trail** (each traveler's own ordered path) and live position markers reactively using unified Riverpod state providers.
 *   **Interactive Destination Pinning:** Support for searching and reverse geocoding locations via OpenStreetMap's Nominatim API, allowing users to map and pin a static destination to share when starting a trip.
 *   **Traveler Centering & Tracking:** Renders a horizontal scrollable row of active members on the live map overlay. Travelers can tap any member chip to center the map on their last reported location coordinates.
+*   **Trips Dashboard:** The home screen is a dashboard (backed by a typed data layer — models + `TripRepository` + a Riverpod `tripsProvider`) showing **only the current user's trips**. Summary stat tiles (active · travelers · destinations) sit above sectioned **Active / Ended** cards; each card shows the destination, a member colour-avatar cluster + count, a status pill, the trip id, and start date, with an overflow menu to **Share** or **End trip**.
 *   **Trip Sharing & Joining:** After creating a trip, a confirmation dialog lets the owner copy the trip ID or send it through the native OS share sheet (`share_plus`); any trip in the dashboard is shareable via a per-card action. Others join by pasting the shared trip ID into the Join dialog — a first-time join adds the trip to their dashboard, while pasting the ID of a trip they already belong to opens its live map directly (driven by the backend's `alreadyMember` flag).
 *   **Adaptive Theming (Light + Dark):** A centralized, token-driven design system exposes light and dark themes (light by default, switchable at runtime and persisted). No visual value is hardcoded in screens — all colours resolve through the theme and a semantic-colour extension.
 
@@ -47,7 +48,10 @@ lib/
 │   └── widgets/       # Reusable themed widgets (primary button, glass panel, ticket card, skeleton…)
 └── features/
     ├── auth/          # Login & signup screens with persisted JWT session
-    ├── trip/          # Trip list, creation (map pin + Nominatim search), and share service
+    ├── trip/          # Trips dashboard, creation, sharing, and the typed data layer:
+    │                  #   models/ (Trip, Destination, TripMember, JoinResult),
+    │                  #   repositories/ (TripRepository), providers/ (tripsProvider),
+    │                  #   widgets/ (dashboard cards, stat tiles, status pill, avatar cluster)
     └── tracking/      # Interactive Map screens, live GPS trackers, sync, and data repositories
 ```
 

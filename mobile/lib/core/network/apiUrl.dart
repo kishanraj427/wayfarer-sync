@@ -7,6 +7,7 @@ class ApiUrl {
   static const String trips = '/trip';
 
   static String joinTrip(String tripId) => '/trip/$tripId/join';
+  static String endTrip(String tripId) => '/trip/$tripId/end';
   static String tripDetails(String tripId) => '/trip/$tripId';
   static String tripMembers(String tripId) => '/trip/$tripId/members';
   static String uploadBatch(String tripId) => '/trip/$tripId/paths/batch';

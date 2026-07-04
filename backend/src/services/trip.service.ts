@@ -4,8 +4,17 @@ import prisma from "../prisma";
 import { getRandomColor } from "@/utils/randomColor";
 import { Destination } from "schema";
 
-export const listTrip = () => {
-  return prisma.trip.findMany({ where: { deletedAt: null } });
+export const listTrip = (userId: string) => {
+  return prisma.trip.findMany({
+    where: { deletedAt: null, members: { some: { userId } } },
+    include: {
+      destinations: { orderBy: { order: "asc" } },
+      members: { include: { user: { select: { id: true, email: true } } } },
+      _count: { select: { members: true } },
+    },
+    orderBy: { startedAt: "desc" },
+    take: 100,
+  });
 };
 
 export const createTrip = async (
@@ -114,5 +123,24 @@ export const getTripMembers = async (tripId: string) => {
   return prisma.tripMember.findMany({
     where: { tripId },
     include: { user: { select: { id: true, email: true } } },
+  });
+};
+
+export const endTripById = async (tripId: string, userId: string) => {
+  const member = await prisma.tripMember.findUnique({
+    where: { tripId_userId: { tripId, userId } },
+    include: { trip: { select: { deletedAt: true } } },
+  });
+  if (!member || member.trip.deletedAt !== null) {
+    return null;
+  }
+  return prisma.trip.update({
+    where: { id: tripId },
+    data: { endedAt: new Date() },
+    include: {
+      destinations: { orderBy: { order: "asc" } },
+      members: { include: { user: { select: { id: true, email: true } } } },
+      _count: { select: { members: true } },
+    },
   });
 };

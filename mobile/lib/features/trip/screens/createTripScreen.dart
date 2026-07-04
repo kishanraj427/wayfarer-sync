@@ -6,13 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
-import '../../../core/network/apiUrl.dart';
-import '../../../core/network/apiClient.dart';
 import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTheme.dart';
 import '../../../core/theme/appTokens.dart';
 import '../../../core/widgets/primaryButton.dart';
+import '../providers/trips_provider.dart';
+import '../repositories/trip_repository.dart';
 import '../services/tripShare.dart';
 
 class CreateTripScreen extends ConsumerStatefulWidget {
@@ -120,11 +120,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
     setState(() => _isSaving = true);
     try {
-      final client = ref.read(apiClientProvider);
-      final createdTrip = await client.post(ApiUrl.trips, {
-        'title': _titleController.text.trim(),
-        'startedAt': DateTime.now().toUtc().toIso8601String(),
-        'destinations': [
+      final createdTrip = await ref.read(tripRepositoryProvider).createTrip(
+        title: _titleController.text.trim(),
+        startedAt: DateTime.now(),
+        destinations: [
           {
             'name': _selectedLocationName ?? 'Destination',
             'latitude': _selectedLocation!.latitude,
@@ -132,11 +131,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             'order': 0,
           }
         ],
-      });
+      );
+      ref.read(tripsProvider.notifier).refresh();
       if (mounted) {
-        final tripId = createdTrip['id'] as String;
-        final tripTitle = createdTrip['title'] as String? ?? _titleController.text.trim();
-        await _showTripCreatedDialog(tripId, tripTitle);
+        await _showTripCreatedDialog(createdTrip.id, createdTrip.title);
       }
     } catch (e) {
       if (mounted) {

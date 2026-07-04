@@ -3,9 +3,13 @@ import z from "zod";
 import * as tripService from "../services/trip.service";
 import { AuthRequest } from "@/middleware/auth.middleware";
 
-export const listTrip = async (req: Request, res: Response) => {
+export const listTrip = async (req: AuthRequest, res: Response) => {
   try {
-    const tripList = await tripService.listTrip();
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(404).json({ message: "User not found", success: false });
+    }
+    const tripList = await tripService.listTrip(userId);
 
     res.status(200).json({
       data: tripList,
@@ -167,5 +171,32 @@ export const getMembersById = async (req: AuthRequest, res: Response) => {
       message: "Failed to fetch trip members",
       success: false,
     });
+  }
+};
+
+export const endTripById = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(404).json({ message: "User not found", success: false });
+    }
+    const parsedTripId = z.uuid().safeParse(id);
+    if (!parsedTripId.success) {
+      return res.status(400).json({
+        message: "Trip ID must be a valid UUID",
+        success: false,
+      });
+    }
+    const trip = await tripService.endTripById(parsedTripId.data, userId);
+    if (!trip) {
+      return res.status(404).json({
+        message: "Trip not found or you are not a member",
+        success: false,
+      });
+    }
+    res.status(200).json({ data: trip, success: true });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to end trip", success: false });
   }
 };
