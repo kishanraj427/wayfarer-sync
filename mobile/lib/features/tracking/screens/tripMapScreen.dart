@@ -2,6 +2,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:wayfarer_sync_mobile/features/tracking/models/realtimeEvent.dart';
 import '../../../core/network/apiUrl.dart';
@@ -10,6 +11,8 @@ import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTheme.dart';
 import '../../../core/theme/appTokens.dart';
 import '../../../core/widgets/glassPanel.dart';
+import '../../trip/providers/trips_provider.dart';
+import '../../trip/services/tripShare.dart';
 import '../providers/connectivityProvider.dart';
 import '../providers/liveTrackingProviders.dart';
 import '../providers/mapStateProvider.dart';
@@ -19,11 +22,13 @@ import '../services/syncService.dart';
 
 class TripMapScreen extends ConsumerStatefulWidget {
   final String tripId;
+  final String tripTitle;
   final String currentUserId;
 
   const TripMapScreen({
     super.key,
     required this.tripId,
+    required this.tripTitle,
     required this.currentUserId,
   });
 
@@ -54,7 +59,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
       // Save direct references before any async work so dispose() and
       // callbacks can use them without touching ref.
       _trackingService = ref.read(locationTrackingServiceProvider);
-      _routingService  = ref.read(osrmRoutingServiceProvider);
+      _routingService = ref.read(osrmRoutingServiceProvider);
       _trackingService.startTracking(widget.tripId, widget.currentUserId);
       _fetchTripDetails();
 
@@ -67,7 +72,9 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
         (previous, next) {
           if (next is AsyncData<MemberLocationUpdate>) {
             final update = next.value;
-            ref.read(mapStateProvider.notifier).updateMemberPosition(
+            ref
+                .read(mapStateProvider.notifier)
+                .updateMemberPosition(
                   update.userId,
                   LatLng(update.latitude, update.longitude),
                 );
@@ -171,15 +178,59 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sync failed: $e')),
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Sync failed: $e')));
+      }
+    }
+  }
+
+  // ── App bar actions ───────────────────────────────────────────────
+
+  void _shareTrip() {
+    shareTrip(tripId: widget.tripId, title: widget.tripTitle);
+  }
+
+  Future<void> _confirmEndTrip() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('End this trip?'),
+        content: const Text('Live tracking will stop for everyone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('End trip'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(tripsProvider.notifier).endTrip(widget.tripId);
+      if (mounted) {
+        messenger.showSnackBar(const SnackBar(content: Text('Trip ended.')));
+        router.go('/trips');
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Failed to end trip: $e')),
         );
       }
     }
   }
 
   void _recenterOnSelf() {
-    final userPosition = ref.read(mapStateProvider).positions[widget.currentUserId];
+    final userPosition = ref
+        .read(mapStateProvider)
+        .positions[widget.currentUserId];
     if (userPosition != null) {
       _mapController.move(userPosition, 15.0);
     } else {
@@ -208,11 +259,13 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
     // trigger sync itself (that's owned by connectivitySyncListenerProvider).
     final connectivityAsync = ref.watch(connectivityStreamProvider);
     final isOnline = connectivityAsync.maybeWhen(
-      data: (resultList) => resultList.any((result) =>
-          result == ConnectivityResult.wifi ||
-          result == ConnectivityResult.mobile ||
-          result == ConnectivityResult.ethernet ||
-          result == ConnectivityResult.vpn),
+      data: (resultList) => resultList.any(
+        (result) =>
+            result == ConnectivityResult.wifi ||
+            result == ConnectivityResult.mobile ||
+            result == ConnectivityResult.ethernet ||
+            result == ConnectivityResult.vpn,
+      ),
       orElse: () => false,
     );
 
@@ -279,15 +332,18 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
         height: 60,
         child: GestureDetector(
           onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Destination: $name')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Destination: $name')));
           },
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.flag, color: context.semantic.destinationPin, size: 36),
-              Icon(Icons.location_on_outlined, color: context.semantic.destinationPin, size: 12),
+              Icon(
+                Icons.location_on,
+                color: context.semantic.destinationPin,
+                size: 36,
+              ),
             ],
           ),
         ),
@@ -306,7 +362,37 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_tripDetails?['title'] ?? 'Live trip'),
+        title: Text(
+          widget.tripTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'share') _shareTrip();
+              if (value == 'end') _confirmEndTrip();
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'share',
+                child: ListTile(
+                  leading: Icon(Icons.share_outlined),
+                  title: Text('Share'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'end',
+                child: ListTile(
+                  leading: Icon(Icons.stop_circle_outlined),
+                  title: Text('End trip'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Stack(
         children: [
@@ -328,40 +414,47 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
               PolylineLayer(
                 polylines: _routesToDestination.entries
                     .where((e) => e.value.length >= 2)
-                    .map((e) => Polyline(
-                          points: e.value,
-                          color: Colors.black.withOpacity(0.85),
-                          strokeWidth: 5.0,
-                        ))
+                    .map(
+                      (e) => Polyline(
+                        points: e.value,
+                        color: Colors.black.withValues(alpha: .85),
+                        strokeWidth: 5.0,
+                      ),
+                    )
                     .toList(),
               ),
               // Route layer: member color, dashed, drawn on top of casing.
               PolylineLayer(
                 polylines: _routesToDestination.entries
                     .where((e) => e.value.length >= 2)
-                    .map((e) => Polyline(
-                          points: e.value,
-                          color: _trailColorForUser(e.key),
-                          strokeWidth: 3.0,
-                          pattern: StrokePattern.dashed(segments: [12.0, 6.0]),
-                        ))
+                    .map(
+                      (e) => Polyline(
+                        points: e.value,
+                        color: _trailColorForUser(e.key),
+                        strokeWidth: 3.0,
+                        pattern: StrokePattern.dashed(segments: [12.0, 6.0]),
+                      ),
+                    )
                     .toList(),
               ),
               // ── GPS breadcrumb trails (movement history) ──────────────
               PolylineLayer(
                 polylines: liveMarkerMap.trails.entries
                     .where((entry) => entry.value.length >= 2)
-                    .map((entry) => Polyline(
-                          points: entry.value,
-                          color: _trailColorForUser(entry.key),
-                          strokeWidth: 4.0,
-                        ))
+                    .map(
+                      (entry) => Polyline(
+                        points: entry.value,
+                        color: _trailColorForUser(entry.key),
+                        strokeWidth: 4.0,
+                      ),
+                    )
                     .toList(),
               ),
               MarkerLayer(markers: allMarkers),
             ],
           ),
-          if (!_isLoadingDetails && (_members.isNotEmpty || _destinations.isNotEmpty))
+          if (!_isLoadingDetails &&
+              (_members.isNotEmpty || _destinations.isNotEmpty))
             Positioned(
               top: AppSpace.md,
               left: AppSpace.md,
@@ -383,21 +476,21 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                         final name = dest['name'] as String? ?? 'Destination';
 
                         return Padding(
-                          padding: const EdgeInsets.only(right: AppSpace.sm),
+                          padding: const EdgeInsets.only(),
                           child: Tooltip(
                             message: name,
                             preferBelow: false,
                             child: ActionChip(
-                              avatar: CircleAvatar(
-                                backgroundColor: context.semantic.destinationPin,
+                              label: CircleAvatar(
+                                backgroundColor:
+                                    context.semantic.destinationPin,
                                 radius: 12,
                                 child: Icon(
-                                  Icons.flag,
-                                  size: 10,
+                                  Icons.location_on,
+                                  size: 16,
                                   color: context.semantic.onMarker,
                                 ),
                               ),
-                              label: const SizedBox.shrink(),
                               side: BorderSide(
                                 color: context.semantic.destinationPin,
                                 width: 1.5,
@@ -414,7 +507,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                       if (_destinations.isNotEmpty && _members.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpace.xs,
+                            horizontal: AppSpace.sm,
                             vertical: AppSpace.xs,
                           ),
                           child: VerticalDivider(
@@ -427,12 +520,16 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                       // ── Member chips ──────────────────────────────────────
                       ..._members.map((member) {
                         final userId = member['userId'] as String;
-                        final userEmail = member['user']?['email'] as String? ?? 'User';
+                        final userEmail =
+                            member['user']?['email'] as String? ?? 'User';
                         final isMe = userId == widget.currentUserId;
                         final label = isMe ? 'Me' : _getEmailPrefix(userEmail);
-                        final hexColor = member['color'] as String? ?? '#FF5722';
+                        final hexColor =
+                            member['color'] as String? ?? '#FF5722';
                         final color = _getMemberColor(hexColor);
-                        final hasLocation = liveMarkerMap.positions.containsKey(userId);
+                        final hasLocation = liveMarkerMap.positions.containsKey(
+                          userId,
+                        );
                         // "Selected" chip = the current user's own chip — the
                         // only selection concept already present (`isMe`).
                         final isSelected = isMe;
@@ -454,10 +551,13 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                             ),
                             label: Text(
                               label,
-                              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(
                                     color: isSelected
                                         ? context.semantic.onActiveContainer
-                                        : Theme.of(context).colorScheme.onSurface,
+                                        : Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
                                   ),
                             ),
                             side: BorderSide(
@@ -473,7 +573,9 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('No location updates from $label yet.'),
+                                    content: Text(
+                                      'No location updates from $label yet.',
+                                    ),
                                     duration: const Duration(seconds: 2),
                                   ),
                                 );
@@ -482,7 +584,6 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                           ),
                         );
                       }),
-
                     ],
                   ),
                 ),
@@ -506,8 +607,8 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                       Text(
                         'TRIP ID',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       Text(widget.tripId, style: monoData(context)),
                       const SizedBox(height: AppSpace.xs),
@@ -559,7 +660,10 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                       tooltip: 'Zoom out',
                       onPressed: () => _zoomBy(-_zoomStep),
                     ),
-                    Divider(height: AppSpace.sm, color: context.semantic.hairline),
+                    Divider(
+                      height: AppSpace.sm,
+                      color: context.semantic.hairline,
+                    ),
                     IconButton(
                       style: circularButtonStyle,
                       icon: const Icon(Icons.my_location),

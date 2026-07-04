@@ -91,9 +91,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) {
           final tripId = state.pathParameters['tripId']!;
           final userId = state.pathParameters['userId']!;
+          final tripTitle = (state.extra as String?) ?? 'Live trip';
           return _transitionPage(
             state,
-            TripMapScreen(tripId: tripId, currentUserId: userId),
+            TripMapScreen(
+              tripId: tripId,
+              tripTitle: tripTitle,
+              currentUserId: userId,
+            ),
           );
         },
       ),

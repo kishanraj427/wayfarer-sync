@@ -190,7 +190,10 @@ class _Dashboard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: AppSpace.md),
       child: TripDashboardCard(
         trip: trip,
-        onOpen: () => context.push('/trip/${trip.id}/map/$userId'),
+        onOpen: () => context.push(
+          '/trip/${trip.id}/map/$userId',
+          extra: trip.title,
+        ),
         onShare: () => shareTrip(tripId: trip.id, title: trip.title),
         onEnd: () => _confirmEnd(context, trip),
       ),
