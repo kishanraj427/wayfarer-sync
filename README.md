@@ -4,7 +4,7 @@
 [![Bun Version](https://img.shields.io/badge/Bun-%3E%3D1.3.6-black?logo=bun)](https://bun.sh)
 [![Flutter Version](https://img.shields.io/badge/Flutter-Mobile-blue?logo=flutter)](https://flutter.dev)
 
-Wayfarer Sync is a real-time, offline-first collaborative trip itinerary mapping platform. It combines a high-performance backend service with a collaborative mobile client (Flutter) to enable seamless trip planning, static route/destination marker creation, real-time location sharing, and robust offline synchronization for remote travel.
+Wayfarer Sync is a real-time, offline-first collaborative trip itinerary mapping platform. It combines a high-performance backend service with a collaborative mobile client (Flutter) to enable seamless trip planning, static route/destination marker creation, real-time location sharing, OSRM road-based shortest-path visualization, and robust offline synchronization for remote travel.
 
 ---
 
@@ -28,7 +28,7 @@ wayfarer-sync/
 
 ## 🛠️ Components & Technologies
 
-### 1. [Backend Service](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/backend)
+### 1. [Backend Service](backend/)
 An ultra-fast real-time service powering API endpoints, WebSocket rooms, and database layers.
 
 *   **Runtime**: [Bun](https://bun.sh) (v1.3.6+) for high-speed execution, bundling, and package management.
@@ -37,15 +37,17 @@ An ultra-fast real-time service powering API endpoints, WebSocket rooms, and dat
 *   **Cache & Queue**: Valkey (Redis-compatible) for real-time pub/sub and high-throughput queues.
 *   **Real-time Protocol**: WebSocket server (`ws`) handling live client location broadcasts.
 
-### 2. [Mobile Application](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/mobile)
+### 2. [Mobile Application](mobile/)
 A multi-platform client built using [Flutter](https://flutter.dev) tailored for mobile-only collaborative travel navigation.
 
 *   **State Management**: Riverpod (`flutter_riverpod`) for reactive state and data streams.
 *   **Local Store**: Drift (reactive SQLite layer) for offline-first GPS coordinate logging.
-*   **Mapping**: `flutter_map` with OpenStreetMap tile layers.
-*   **Networking**: Native HTTP Client + WebSocket channels.
+*   **Mapping**: `flutter_map` with OpenStreetMap tile layers — renders per-member GPS trails, live position markers, destination flag pins, and OSRM road-based route lines from each member to the destination.
+*   **Road Routing**: OSRM (`router.project-osrm.org`) — fetches real driving routes from every member's live position to the trip destination; routes are rendered as dashed per-member colored polylines with a solid black casing for visibility on any tile background.
+*   **Networking**: Native HTTP client + WebSocket channels for live location sync.
 *   **Navigation**: `go_router` with auth-aware redirects and shared-axis transitions.
-*   **Design System**: token-driven light/dark theming (`google_fonts`, `animations`) with reusable widgets, plus native trip sharing (`share_plus`).
+*   **Design System**: Token-driven light/dark theming (`google_fonts`, `animations`) with reusable widgets and native trip sharing (`share_plus`).
+*   **Trip Actions**: Share trip invite and End trip available from both the trip dashboard card and the live map screen app bar.
 
 ---
 
@@ -60,7 +62,7 @@ A multi-platform client built using [Flutter](https://flutter.dev) tailored for 
 
 ### Running the Backend
 
-For detailed setup instructions, see the [Backend README](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/backend/README.md).
+For detailed setup instructions, see the [Backend README](backend/README.md).
 
 1.  **Navigate to the backend directory**:
     ```bash
@@ -68,7 +70,7 @@ For detailed setup instructions, see the [Backend README](file:///C:/Users/Raj%2
     ```
 
 2.  **Configure environment variables**:
-    Create a `.env` file matching [backend/.env](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/backend/.env):
+    Create a `.env` file in the `backend/` directory:
     ```env
     DATABASE_URL="postgresql://wayfarer:wayfarer123@localhost:5433/wayfarer"
     JWT_SECRET="your_secure_jwt_secret_key"
@@ -96,13 +98,13 @@ For detailed setup instructions, see the [Backend README](file:///C:/Users/Raj%2
     ```bash
     bun run dev
     ```
-    The backend will run at `http://localhost:3000`. You can view the live interactive Swagger documentation at `http://localhost:3000/docs`.
+    The backend will run at `http://localhost:3000`. Live interactive Swagger documentation is at `http://localhost:3000/docs`.
 
 ---
 
 ### Running the Mobile Client
 
-For detailed setup instructions, see the [Mobile README](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/mobile/README.md).
+For detailed setup instructions, see the [Mobile README](mobile/README.md).
 
 1.  **Navigate to the mobile directory**:
     ```bash
@@ -119,11 +121,14 @@ For detailed setup instructions, see the [Mobile README](file:///C:/Users/Raj%20
     dart run build_runner build --delete-conflicting-outputs
     ```
 
-4.  **Configure Server Endpoint connection**:
-    *   If using an **Android Emulator**, verify that connections map to the default bridge address `10.0.2.2:3000`.
-    *   If using an **iOS Simulator** or physical device on the same local network, use the server's local IP (e.g. `192.168.1.X:3000`).
+4.  **Configure Server Endpoint**:
+    Edit `lib/core/network/apiUrl.dart` with your server address:
+    *   **Android Emulator**: use `10.0.2.2:3000`
+    *   **iOS Simulator / physical device**: use your machine's local IP (e.g. `192.168.1.X:3000`)
 
 5.  **Run the application**:
     ```bash
     flutter run
     ```
+
+> **OSRM note**: The mobile app calls `router.project-osrm.org` for road routing — no API key required. Route fetching degrades gracefully when offline; GPS trails and markers still render.
