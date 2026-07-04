@@ -33,10 +33,12 @@ class TripDashboardCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final destination = trip.primaryDestination;
-    final memberColors =
-        trip.members.map((member) => _memberColor(context, member.color)).toList();
-    final startText =
-        trip.startedAt == null ? '' : DateFormat('MMM d').format(trip.startedAt!);
+    final memberColors = trip.members
+        .map((member) => _memberColor(context, member.color))
+        .toList();
+    final startText = trip.startedAt == null
+        ? ''
+        : DateFormat('MMM d').format(trip.startedAt!);
 
     return Opacity(
       opacity: trip.isActive ? 1.0 : 0.6,
@@ -52,21 +54,31 @@ class TripDashboardCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(trip.title,
-                          style: textTheme.titleMedium,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        trip.title,
+                        style: textTheme.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    StatusPill(isActive: trip.isActive),
+                    if (startText.isNotEmpty)
+                      Text(startText, style: monoData(context, size: 11)),
+
                     PopupMenuButton<String>(
                       onSelected: (value) {
                         if (value == 'share') onShare();
                         if (value == 'end') onEnd();
                       },
                       itemBuilder: (context) => [
-                        const PopupMenuItem(value: 'share', child: Text('Share')),
+                        const PopupMenuItem(
+                          value: 'share',
+                          child: Text('Share'),
+                        ),
                         if (trip.isActive)
-                          const PopupMenuItem(value: 'end', child: Text('End trip')),
+                          const PopupMenuItem(
+                            value: 'end',
+                            child: Text('End trip'),
+                          ),
                       ],
                     ),
                   ],
@@ -75,31 +87,34 @@ class TripDashboardCard extends StatelessWidget {
                   const SizedBox(height: AppSpace.xs),
                   Row(
                     children: [
-                      Icon(Icons.flag_outlined,
-                          size: 16, color: context.semantic.destinationPin),
+                      Icon(
+                        Icons.location_on,
+                        size: 16,
+                        color: context.semantic.destinationPin,
+                      ),
                       const SizedBox(width: AppSpace.xs),
                       Expanded(
-                        child: Text(destination.name,
-                            style: textTheme.bodyMedium,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
+                        child: Text(
+                          destination.name,
+                          style: textTheme.bodyMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
                 ],
                 const SizedBox(height: AppSpace.sm),
-                MemberAvatarCluster(colors: memberColors, total: trip.memberCount),
                 const SizedBox(height: AppSpace.sm),
                 Row(
                   children: [
                     Expanded(
-                      child: Text(trip.id,
-                          style: monoData(context, size: 11),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
+                      child: MemberAvatarCluster(
+                        colors: memberColors,
+                        total: trip.memberCount,
+                      ),
                     ),
-                    if (startText.isNotEmpty)
-                      Text(startText, style: monoData(context, size: 11)),
+                    StatusPill(isActive: trip.isActive),
                   ],
                 ),
               ],

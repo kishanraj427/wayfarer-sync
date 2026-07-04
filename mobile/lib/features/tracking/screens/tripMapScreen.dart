@@ -299,12 +299,26 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                 userAgentPackageName: 'com.wayfarersync.mobile',
               ),
               // ── OSRM road routes (member → destination) ───────────────
+              // Casing layer: SOLID continuous black border drawn first.
+              // Sits behind the dash gaps of the route layer so the colored
+              // line is readable against any OSM tile color.
               PolylineLayer(
                 polylines: _routesToDestination.entries
                     .where((e) => e.value.length >= 2)
                     .map((e) => Polyline(
                           points: e.value,
-                          color: _trailColorForUser(e.key).withOpacity(0.55),
+                          color: Colors.black.withOpacity(0.85),
+                          strokeWidth: 5.0,
+                        ))
+                    .toList(),
+              ),
+              // Route layer: member color, dashed, drawn on top of casing.
+              PolylineLayer(
+                polylines: _routesToDestination.entries
+                    .where((e) => e.value.length >= 2)
+                    .map((e) => Polyline(
+                          points: e.value,
+                          color: _trailColorForUser(e.key),
                           strokeWidth: 3.0,
                           pattern: StrokePattern.dashed(segments: [12.0, 6.0]),
                         ))
@@ -347,31 +361,28 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
 
                         return Padding(
                           padding: const EdgeInsets.only(right: AppSpace.sm),
-                          child: ActionChip(
-                            avatar: CircleAvatar(
-                              backgroundColor: context.semantic.destinationPin,
-                              radius: 12,
-                              child: Icon(
-                                Icons.flag,
-                                size: 10,
-                                color: context.semantic.onMarker,
+                          child: Tooltip(
+                            message: name,
+                            preferBelow: false,
+                            child: ActionChip(
+                              avatar: CircleAvatar(
+                                backgroundColor: context.semantic.destinationPin,
+                                radius: 12,
+                                child: Icon(
+                                  Icons.flag,
+                                  size: 10,
+                                  color: context.semantic.onMarker,
+                                ),
                               ),
-                            ),
-                            label: Text(
-                              name,
-                              style: monoData(
-                                context,
-                                size: 12,
-                                color: Theme.of(context).colorScheme.onSurface,
+                              label: const SizedBox.shrink(),
+                              side: BorderSide(
+                                color: context.semantic.destinationPin,
+                                width: 1.5,
                               ),
+                              onPressed: () {
+                                _mapController.move(LatLng(lat, lon), 15.0);
+                              },
                             ),
-                            side: BorderSide(
-                              color: context.semantic.destinationPin,
-                              width: 1.5,
-                            ),
-                            onPressed: () {
-                              _mapController.move(LatLng(lat, lon), 15.0);
-                            },
                           ),
                         );
                       }),
