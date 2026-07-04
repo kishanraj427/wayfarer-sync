@@ -12,10 +12,10 @@ ThemeData _buildTheme(Brightness brightness) {
   final isDark = brightness == Brightness.dark;
   final semantic = isDark ? AppSemanticColors.dark : AppSemanticColors.light;
 
-  final background = isDark ? AppPalette.inkBgDark : AppPalette.mist50;
+  final background = isDark ? AppPalette.backgroundDark : AppPalette.background;
   final surface = isDark ? AppPalette.surfaceDark : AppPalette.surface;
-  final textHi = isDark ? AppPalette.textHiDark : AppPalette.ink900;
-  final textLo = isDark ? AppPalette.textLoDark : AppPalette.slate500;
+  final textHi = isDark ? AppPalette.onSurfaceDark : AppPalette.onSurface;
+  final textLo = isDark ? AppPalette.onSurfaceVariantDark : AppPalette.onSurfaceVariant;
 
   final colorScheme = ColorScheme.fromSeed(
     seedColor: semantic.route,
@@ -26,22 +26,28 @@ ThemeData _buildTheme(Brightness brightness) {
     onSurfaceVariant: textLo,
     primary: semantic.route,
     onPrimary: semantic.onRoute,
+    secondary: semantic.signalOnline,
+    secondaryContainer: semantic.activeContainer,
+    onSecondaryContainer: semantic.onActiveContainer,
+    tertiary: semantic.peerFallback,
+    error: isDark ? AppPalette.errorDark : AppPalette.error,
+    errorContainer: isDark ? AppPalette.errorContainerDark : AppPalette.errorContainer,
     outline: semantic.hairline,
   );
 
   TextStyle display(double size, FontWeight weight) =>
-      GoogleFonts.bricolageGrotesque(fontSize: size, fontWeight: weight, color: textHi);
+      GoogleFonts.plusJakartaSans(fontSize: size, fontWeight: weight, color: textHi);
   TextStyle body(double size, FontWeight weight, Color color) =>
       GoogleFonts.plusJakartaSans(fontSize: size, fontWeight: weight, color: color);
 
   final textTheme = TextTheme(
-    displaySmall: display(32, FontWeight.w700),
-    headlineSmall: display(24, FontWeight.w700),
-    titleLarge: display(20, FontWeight.w600),
+    displaySmall: display(24, FontWeight.w700),
+    headlineSmall: display(22, FontWeight.w700),
+    titleLarge: display(18, FontWeight.w600),
     titleMedium: body(16, FontWeight.w600, textHi),
-    bodyLarge: body(15, FontWeight.w400, textHi),
+    bodyLarge: body(14, FontWeight.w400, textHi),
     bodyMedium: body(14, FontWeight.w400, textLo),
-    labelLarge: body(14, FontWeight.w600, textHi),
+    labelLarge: body(12, FontWeight.w600, textHi),
   );
 
   return ThemeData(
@@ -57,7 +63,7 @@ ThemeData _buildTheme(Brightness brightness) {
       elevation: 0,
       scrolledUnderElevation: 0.5,
       centerTitle: false,
-      titleTextStyle: display(20, FontWeight.w700),
+      titleTextStyle: display(22, FontWeight.w700),
     ),
     cardTheme: CardThemeData(
       color: surface,

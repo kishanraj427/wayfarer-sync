@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTheme.dart';
 import '../../../core/theme/appTokens.dart';
 import '../../../core/widgets/glassPanel.dart';
+import '../providers/connectivityProvider.dart';
 import '../providers/liveTrackingProviders.dart';
 import '../providers/mapStateProvider.dart';
 import '../services/locationTrackingService.dart';
@@ -201,6 +203,19 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
   Widget build(BuildContext context) {
     final liveMarkerMap = ref.watch(mapStateProvider);
 
+    // Display-only: drives the "Syncing…" indicator dot in the bottom info
+    // panel. Reuses the existing app-wide connectivity stream; does not
+    // trigger sync itself (that's owned by connectivitySyncListenerProvider).
+    final connectivityAsync = ref.watch(connectivityStreamProvider);
+    final isOnline = connectivityAsync.maybeWhen(
+      data: (resultList) => resultList.any((result) =>
+          result == ConnectivityResult.wifi ||
+          result == ConnectivityResult.mobile ||
+          result == ConnectivityResult.ethernet ||
+          result == ConnectivityResult.vpn),
+      orElse: () => false,
+    );
+
     final userPosition = liveMarkerMap.positions[widget.currentUserId];
     if (!_hasCentered && userPosition != null) {
       _hasCentered = true;
@@ -280,6 +295,14 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
     }).toList();
 
     final allMarkers = [...userMarkers, ...destinationMarkers];
+
+    // Shared chrome for the circular zoom/recenter/sync buttons — appearance
+    // only, applied via IconButton's existing `style` slot.
+    final circularButtonStyle = IconButton.styleFrom(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      foregroundColor: Theme.of(context).colorScheme.onSurface,
+      shape: CircleBorder(side: BorderSide(color: context.semantic.hairline)),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -410,10 +433,16 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                         final hexColor = member['color'] as String? ?? '#FF5722';
                         final color = _getMemberColor(hexColor);
                         final hasLocation = liveMarkerMap.positions.containsKey(userId);
+                        // "Selected" chip = the current user's own chip — the
+                        // only selection concept already present (`isMe`).
+                        final isSelected = isMe;
 
                         return Padding(
                           padding: const EdgeInsets.only(right: AppSpace.sm),
                           child: ActionChip(
+                            backgroundColor: isSelected
+                                ? context.semantic.activeContainer
+                                : Theme.of(context).colorScheme.surface,
                             avatar: CircleAvatar(
                               backgroundColor: color,
                               radius: 12,
@@ -425,11 +454,11 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                             ),
                             label: Text(
                               label,
-                              style: monoData(
-                                context,
-                                size: 12,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
+                              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                    color: isSelected
+                                        ? context.semantic.onActiveContainer
+                                        : Theme.of(context).colorScheme.onSurface,
+                                  ),
                             ),
                             side: BorderSide(
                               color: hasLocation
@@ -459,6 +488,54 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                 ),
               ),
             ),
+          if (!_isLoadingDetails)
+            Positioned(
+              left: AppSpace.md,
+              bottom: AppSpace.md,
+              child: SafeArea(
+                top: false,
+                child: GlassPanel(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpace.md,
+                    vertical: AppSpace.sm,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'TRIP ID',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                      ),
+                      Text(widget.tripId, style: monoData(context)),
+                      const SizedBox(height: AppSpace.xs),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isOnline
+                                  ? context.semantic.signalOnline
+                                  : context.semantic.hairline,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpace.xs),
+                          Text(
+                            isOnline ? 'Syncing…' : 'Offline',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             right: AppSpace.md,
             bottom: AppSpace.md,
@@ -470,22 +547,28 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
+                      style: circularButtonStyle,
                       icon: const Icon(Icons.add),
                       tooltip: 'Zoom in',
                       onPressed: () => _zoomBy(_zoomStep),
                     ),
+                    const SizedBox(height: AppSpace.xs),
                     IconButton(
+                      style: circularButtonStyle,
                       icon: const Icon(Icons.remove),
                       tooltip: 'Zoom out',
                       onPressed: () => _zoomBy(-_zoomStep),
                     ),
                     Divider(height: AppSpace.sm, color: context.semantic.hairline),
                     IconButton(
+                      style: circularButtonStyle,
                       icon: const Icon(Icons.my_location),
                       tooltip: 'Recenter on me',
                       onPressed: _recenterOnSelf,
                     ),
+                    const SizedBox(height: AppSpace.xs),
                     IconButton(
+                      style: circularButtonStyle,
                       icon: const Icon(Icons.sync),
                       tooltip: 'Sync offline points',
                       onPressed: _syncNow,

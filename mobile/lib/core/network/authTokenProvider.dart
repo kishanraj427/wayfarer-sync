@@ -8,6 +8,9 @@ class AuthTokenNotifier extends StateNotifier<String?> {
   AuthTokenNotifier(String? initialToken) : super(initialToken);
 
   static const tokenKey = 'jwt_token';
+  // Persisted current-user cache key (owned here so logout can clear it without
+  // a circular import back to the user provider).
+  static const currentUserPrefsKey = 'current_user';
 
   Future<void> setToken(String token) async {
     try {
@@ -24,6 +27,7 @@ class AuthTokenNotifier extends StateNotifier<String?> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(tokenKey);
+      await prefs.remove(currentUserPrefsKey);
       state = null;
     } catch (e) {
       // ignore: avoid_print

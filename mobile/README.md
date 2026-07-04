@@ -11,9 +11,12 @@ Wayfarer Sync is an offline-first, collaborative trip itinerary and real-time lo
 *   **Reactive UI Repainting:** Utilizes standard OpenStreetMap tile layers via `flutter_map`, repainting a **per-member colored polyline trail** (each traveler's own ordered path) and live position markers reactively using unified Riverpod state providers.
 *   **Interactive Destination Pinning:** Support for searching and reverse geocoding locations via OpenStreetMap's Nominatim API, allowing users to map and pin a static destination to share when starting a trip.
 *   **Traveler Centering & Tracking:** Renders a horizontal scrollable row of active members on the live map overlay. Travelers can tap any member chip to center the map on their last reported location coordinates.
-*   **Trips Dashboard:** The home screen is a dashboard (backed by a typed data layer — models + `TripRepository` + a Riverpod `tripsProvider`) showing **only the current user's trips**. Summary stat tiles (active · travelers · destinations) sit above sectioned **Active / Ended** cards; each card shows the destination, a member colour-avatar cluster + count, a status pill, the trip id, and start date, with an overflow menu to **Share** or **End trip**.
+*   **Bottom-Nav Shell (Trips · Profile):** A persistent `NavigationBar` (`AppScaffoldShell`, backed by `StatefulShellRoute.indexedStack`) hosts two top-level tabs — **Trips** and **Profile** — each keeping its own navigation stack and scroll position across switches.
+*   **Trips Dashboard (Active-Only + Search):** The Trips tab (backed by a typed data layer — models + `TripRepository` + a Riverpod `tripsProvider`) shows only the current user's **active** trips (ended trips have moved to Profile → Trip History). Summary stat tiles (active · travelers · destinations) sit above the active-trip cards; each card shows the destination, a member colour-avatar cluster + count, a status pill, the trip id, and start date, with an overflow menu to **Share** or **End trip**. An app-bar search action swaps the title for a text field and filters the active list client-side by trip title or destination name as you type.
+*   **Profile Tab:** A new dashboard-style tab showing an identity header (email-monogram avatar + display name via `nameMonogram()` — see below), real stat tiles (total trips · active · destinations), a **Trip History** section listing ended trips (tap to reopen the last map view), a **Dark mode** toggle that flips the persisted `themeModeProvider` at runtime, and a **Log out** action that clears the auth token.
 *   **Trip Sharing & Joining:** After creating a trip, a confirmation dialog lets the owner copy the trip ID or send it through the native OS share sheet (`share_plus`); any trip in the dashboard is shareable via a per-card action. Others join by pasting the shared trip ID into the Join dialog — a first-time join adds the trip to their dashboard, while pasting the ID of a trip they already belong to opens its live map directly (driven by the backend's `alreadyMember` flag).
-*   **Adaptive Theming (Light + Dark):** A centralized, token-driven design system exposes light and dark themes (light by default, switchable at runtime and persisted). No visual value is hardcoded in screens — all colours resolve through the theme and a semantic-colour extension.
+*   **Adaptive Theming (Light + Dark):** A centralized, token-driven design system — the **Stitch palette** — exposes light and dark themes (light by default, switchable at runtime and persisted from the Profile tab). No visual value is hardcoded in screens — all colours resolve through the theme and a semantic-colour extension.
+*   **Identity Monogram & No-Emoji Inputs:** `core/util/name_monogram.dart` derives a 1–2 char avatar label from first/last name, falling back to an email-derived monogram for legacy accounts. `core/util/text_input_rules.dart` provides `inputRules()`, a shared `TextInputFormatter` list (emoji-stripping `noEmojiFormatter` plus any screen-specific extras) applied to every editable `TextField` in the app so emoji never reaches a request body.
 
 ---
 
@@ -45,13 +48,17 @@ lib/
 │   ├── network/       # API Rest Client, HTTP token interceptors, GoRouter, and Socket loops
 │   ├── storage/       # Drift Database schema contracts & connection initializers
 │   ├── theme/         # Design tokens, semantic colours, light/dark themes, ThemeMode controller
-│   └── widgets/       # Reusable themed widgets (primary button, glass panel, ticket card, skeleton…)
+│   ├── util/          # name_monogram.dart (avatar initials), text_input_rules.dart (inputRules()/noEmojiFormatter)
+│   └── widgets/       # Reusable themed widgets (primary button, glass panel, ticket card, skeleton, app_scaffold_shell…)
 └── features/
     ├── auth/          # Login & signup screens with persisted JWT session
-    ├── trip/          # Trips dashboard, creation, sharing, and the typed data layer:
+    │                  #   models/ (CurrentUser), providers/ (currentUserProvider, persistCurrentUser)
+    ├── trip/          # Trips dashboard (active-only + search), creation, sharing, and the typed data layer:
     │                  #   models/ (Trip, Destination, TripMember, JoinResult),
     │                  #   repositories/ (TripRepository), providers/ (tripsProvider),
     │                  #   widgets/ (dashboard cards, stat tiles, status pill, avatar cluster)
+    ├── profile/       # Profile tab: identity header, stat tiles, Trip History, theme toggle, logout
+    │                  #   screens/ (profile_screen.dart), widgets/ (history_row, setting_row)
     └── tracking/      # Interactive Map screens, live GPS trackers, sync, and data repositories
 ```
 
@@ -61,12 +68,15 @@ lib/
 
 The UI is driven entirely by a centralized theme so appearance can change in future releases without editing screens.
 
-*   **Tokens** (`core/theme/appTokens.dart`): the single source of literal colours (light + dark palettes) and the spacing/radius scale. Nothing else in the app declares raw hex or magic spacing.
+*   **Tokens** (`core/theme/appTokens.dart`): the single source of literal colours (the **Stitch palette** — light + dark) and the spacing/radius scale. Nothing else in the app declares raw hex or magic spacing.
 *   **Semantic colours** (`core/theme/appSemanticColors.dart`): a `ThemeExtension` for brand/semantic colours (route accent, glass surfaces, online signal, map-marker colours). Widgets read them via `context.semantic.<name>` so every value adapts between light and dark automatically.
-*   **Themes** (`core/theme/appTheme.dart`): `buildLightTheme()` / `buildDarkTheme()` produced from one shared builder, plus a `monoData()` helper for the monospaced geo-data signature (coordinates, trip IDs).
-*   **Theme mode** (`core/theme/themeModeController.dart`): a persisted `themeModeProvider` — light is the default; dark is fully built and switchable at runtime with no screen changes.
+*   **Themes** (`core/theme/appTheme.dart`): `buildLightTheme()` / `buildDarkTheme()` produced from one shared builder. Body and display text render in **Plus Jakarta Sans** (via `google_fonts`); a `monoData()` helper renders the monospaced geo-data signature (coordinates, trip IDs) in **JetBrains Mono**.
+*   **Theme mode** (`core/theme/themeModeController.dart`): a persisted `themeModeProvider` — light is the default; dark is fully built and switchable at runtime from the Profile tab, with no screen changes.
+*   **Identity & input hygiene** (`core/util/`): `name_monogram.dart` derives every avatar's initials (first+last, or an email fallback), and `text_input_rules.dart` exposes `inputRules()` — every editable `TextField` across auth, trip creation/join/search, and elsewhere wires it in via `inputFormatters: inputRules()` to strip emoji before it reaches a request body.
 
-**Contributor rule:** never hardcode a colour in a screen or widget. Use `Theme.of(context).colorScheme`, `context.semantic.*`, `Theme.of(context).textTheme` / `monoData(context)`, and the `AppSpace` / `AppRadius` tokens. Add a new token first if a value is missing.
+**Contributor rule:** never hardcode a colour in a screen or widget. Use `Theme.of(context).colorScheme`, `context.semantic.*`, `Theme.of(context).textTheme` / `monoData(context)`, and the `AppSpace` / `AppRadius` tokens. Add a new token first if a value is missing. Every editable `TextField` must set `inputFormatters: inputRules()`.
+
+> **Backend note:** users now have a first and last name (`CurrentUser.firstName` / `.lastName`, backend companion change), consumed by the signup form and the Profile/avatar monogram.
 
 ---
 

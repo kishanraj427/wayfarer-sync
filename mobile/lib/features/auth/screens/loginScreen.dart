@@ -5,9 +5,11 @@ import '../../../core/network/apiUrl.dart';
 import '../../../core/network/apiClient.dart';
 import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appTokens.dart';
+import '../../../core/util/text_input_rules.dart';
 import '../../../core/widgets/contourBackground.dart';
 import '../../../core/widgets/primaryButton.dart';
 import '../../../core/widgets/inlineErrorBanner.dart';
+import '../providers/current_user_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -45,6 +47,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       final token = response['token'] as String;
       await ref.read(authTokenProvider.notifier).setToken(token);
+      await persistCurrentUser(ref, response['user'] as Map<String, dynamic>);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -107,6 +110,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             enabled: !_isLoading,
                             decoration: const InputDecoration(labelText: 'Email address'),
                             keyboardType: TextInputType.emailAddress,
+                            inputFormatters: inputRules(),
                           ),
                           const SizedBox(height: AppSpace.md),
                           TextField(
@@ -114,6 +118,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             enabled: !_isLoading,
                             decoration: const InputDecoration(labelText: 'Password'),
                             obscureText: true,
+                            inputFormatters: inputRules(),
                           ),
                           if (_errorMessage != null) ...[
                             const SizedBox(height: AppSpace.md),

@@ -117,11 +117,14 @@ All schema definitions under the `prisma/` folder (such as `user.prisma`, `trip.
 
 ### Authentication
 *   **`POST /api/auth/signup`**
-    *   *Payload*: `{ "email": "user@example.com", "password": "securepassword" }`
-    *   *Response*: User profile along with authorization JWT token.
+    *   *Payload*: `{ "email": "user@example.com", "password": "securepassword", "firstName": "Jane", "lastName": "Doe" }`
+    *   `firstName`/`lastName` are required, 1–50 characters after trimming, and must not contain emoji — an invalid name returns `400`.
+    *   *Response*: User profile (including `firstName`/`lastName`) along with authorization JWT token.
 *   **`POST /api/auth/login`**
     *   *Payload*: `{ "email": "user@example.com", "password": "securepassword" }`
     *   *Response*: Authorization JWT token.
+
+All auth responses (`signup`, `login`, `me`) return a `user` object that includes `firstName` and `lastName`. These are nullable for legacy accounts created before this field existed.
 
 ### Trips
 *   **`GET /api/trip`** [Auth Required]
@@ -171,7 +174,7 @@ sequenceDiagram
     participant DB as PostgreSQL (Prisma)
 
     Note over Client,Server: Authentication & Trip Setup
-    Client->>Server: POST /api/auth/signup (email, password)
+    Client->>Server: POST /api/auth/signup (email, password, firstName, lastName)
     Server->>DB: Create User record (hashed password)
     DB-->>Server: Saved User
     Server-->>Client: JWT Token & User Profile

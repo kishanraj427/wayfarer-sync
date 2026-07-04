@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTokens.dart';
+import '../../../core/util/text_input_rules.dart';
 import '../../../core/widgets/contourBackground.dart';
 import '../../../core/widgets/inlineErrorBanner.dart';
 import '../../../core/widgets/primaryButton.dart';
@@ -15,22 +16,54 @@ import '../widgets/section_header.dart';
 import '../widgets/stat_tile.dart';
 import '../widgets/trip_dashboard_card.dart';
 
-class TripsScreen extends ConsumerWidget {
+class TripsScreen extends ConsumerStatefulWidget {
   const TripsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TripsScreen> createState() => _TripsScreenState();
+}
+
+class _TripsScreenState extends ConsumerState<TripsScreen> {
+  bool _searching = false;
+  String _query = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tripsAsync = ref.watch(tripsProvider);
     final userId = ref.watch(currentUserIdProvider) ?? 'unknown';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My trips'),
+        title: _searching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                inputFormatters: inputRules(),
+                decoration: const InputDecoration(
+                  hintText: 'Search trips',
+                  border: InputBorder.none,
+                ),
+                onChanged: (value) => setState(() => _query = value),
+              )
+            : const Text('My trips'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Log out',
-            onPressed: () => ref.read(authTokenProvider.notifier).clearToken(),
+            icon: Icon(_searching ? Icons.close : Icons.search),
+            tooltip: _searching ? 'Close search' : 'Search',
+            onPressed: () => setState(() {
+              _searching = !_searching;
+              if (!_searching) {
+                _query = '';
+                _searchController.clear();
+              }
+            }),
           ),
         ],
       ),
@@ -40,9 +73,25 @@ class TripsScreen extends ConsumerWidget {
           message: error.toString().replaceFirst('Exception: ', ''),
           onRetry: () => ref.read(tripsProvider.notifier).refresh(),
         ),
-        data: (trips) => trips.isEmpty
-            ? _EmptyView(onCreate: () => context.push('/create-trip'))
-            : _Dashboard(trips: trips, userId: userId, ref: ref),
+        data: (trips) {
+          final active = trips.where((trip) => trip.isActive).toList();
+          final query = _query.trim().toLowerCase();
+          final visible = query.isEmpty
+              ? active
+              : active
+                  .where((trip) =>
+                      trip.title.toLowerCase().contains(query) ||
+                      (trip.primaryDestination?.name.toLowerCase().contains(query) ??
+                          false))
+                  .toList();
+          if (active.isEmpty) {
+            return _EmptyView(onCreate: () => context.push('/create-trip'));
+          }
+          if (visible.isEmpty) {
+            return _NoMatchView(query: _query);
+          }
+          return _Dashboard(trips: active, visible: visible, userId: userId, ref: ref);
+        },
       ),
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -98,14 +147,18 @@ class TripsScreen extends ConsumerWidget {
 
 class _Dashboard extends StatelessWidget {
   final List<Trip> trips;
+  final List<Trip> visible;
   final String userId;
   final WidgetRef ref;
-  const _Dashboard({required this.trips, required this.userId, required this.ref});
+  const _Dashboard({
+    required this.trips,
+    required this.visible,
+    required this.userId,
+    required this.ref,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final active = trips.where((trip) => trip.isActive).toList();
-    final ended = trips.where((trip) => !trip.isActive).toList();
     final travelers = trips.fold<int>(0, (sum, trip) => sum + trip.memberCount);
     final destinations =
         trips.fold<int>(0, (sum, trip) => sum + trip.destinations.length);
@@ -118,21 +171,15 @@ class _Dashboard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: StatTile(label: 'Active', value: '${active.length}')),
+              Expanded(child: StatTile(label: 'Active', value: '${trips.length}')),
               const SizedBox(width: AppSpace.sm),
               Expanded(child: StatTile(label: 'Travelers', value: '$travelers')),
               const SizedBox(width: AppSpace.sm),
               Expanded(child: StatTile(label: 'Dest.', value: '$destinations')),
             ],
           ),
-          if (active.isNotEmpty) ...[
-            const SectionHeader(label: 'Active'),
-            ...active.map((trip) => _cardFor(context, trip)),
-          ],
-          if (ended.isNotEmpty) ...[
-            const SectionHeader(label: 'Ended'),
-            ...ended.map((trip) => _cardFor(context, trip)),
-          ],
+          const SectionHeader(label: 'Active Trips'),
+          ...visible.map((trip) => _cardFor(context, trip)),
         ],
       ),
     );
@@ -248,6 +295,33 @@ class _EmptyView extends StatelessWidget {
   }
 }
 
+class _NoMatchView extends StatelessWidget {
+  final String query;
+  const _NoMatchView({required this.query});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpace.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_off, size: 48, color: context.semantic.route),
+            const SizedBox(height: AppSpace.md),
+            Text(
+              "No trips match '$query'.",
+              style: textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _JoinTripDialog extends StatefulWidget {
   final Future<void> Function(String tripId) onJoin;
   const _JoinTripDialog({required this.onJoin});
@@ -268,10 +342,32 @@ class _JoinTripDialogState extends State<_JoinTripDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Join trip'),
-      content: TextField(
-        controller: _controller,
-        decoration: const InputDecoration(labelText: 'Trip ID (UUID)'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: context.semantic.route,
+            child: Icon(Icons.group_add, color: context.semantic.onRoute),
+          ),
+          const SizedBox(height: AppSpace.md),
+          Text('Join a Trip', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: AppSpace.xs),
+          Text(
+            'Enter the Trip ID your group leader shared.',
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpace.md),
+          TextField(
+            controller: _controller,
+            inputFormatters: inputRules(),
+            decoration: const InputDecoration(
+              labelText: 'Trip ID',
+              prefixIcon: Icon(Icons.key),
+            ),
+          ),
+        ],
       ),
       actions: [
         TextButton(

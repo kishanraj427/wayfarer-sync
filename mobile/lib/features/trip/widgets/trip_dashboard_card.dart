@@ -61,9 +61,6 @@ class TripDashboardCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (startText.isNotEmpty)
-                      Text(startText, style: monoData(context, size: 11)),
-
                     PopupMenuButton<String>(
                       onSelected: (value) {
                         if (value == 'share') onShare();
@@ -105,13 +102,45 @@ class TripDashboardCard extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: AppSpace.sm),
-                const SizedBox(height: AppSpace.sm),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Expanded(
-                      child: MemberAvatarCluster(
-                        colors: memberColors,
-                        total: trip.memberCount,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              MemberAvatarCluster(
+                                colors: memberColors,
+                                total: trip.memberCount,
+                              ),
+                              const SizedBox(width: AppSpace.sm),
+                              Text(
+                                trip.memberCount == 1
+                                    ? '1 member'
+                                    : '${trip.memberCount} members',
+                                style: textTheme.bodyMedium,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpace.sm),
+                          if (startText.isNotEmpty)
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today,
+                                  size: 16,
+                                  color: context.semantic.hairline,
+                                ),
+                                const SizedBox(width: AppSpace.xs),
+                                Text(
+                                  startText,
+                                  style: monoData(context, size: 11),
+                                ),
+                              ],
+                            ),
+                        ],
                       ),
                     ),
                     StatusPill(isActive: trip.isActive),

@@ -10,6 +10,7 @@ import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTheme.dart';
 import '../../../core/theme/appTokens.dart';
+import '../../../core/util/text_input_rules.dart';
 import '../../../core/widgets/primaryButton.dart';
 import '../providers/trips_provider.dart';
 import '../repositories/trip_repository.dart';
@@ -155,16 +156,18 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Trip created!'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Icon(Icons.check_circle, size: 48, color: context.semantic.signalOnline),
+            const SizedBox(height: AppSpace.md),
+            Text('Trip created', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: AppSpace.xs),
             const Text('Share this Trip ID so friends can join:'),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpace.sm),
             SelectableText(
               tripId,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: monoData(context, size: 16, weight: FontWeight.w700),
             ),
           ],
         ),
@@ -255,6 +258,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                   children: [
                     TextField(
                       controller: _titleController,
+                      inputFormatters: inputRules(),
                       decoration: const InputDecoration(
                         labelText: 'Trip name',
                         prefixIcon: Icon(Icons.edit_outlined),
@@ -264,6 +268,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                     TextField(
                       controller: _searchController,
                       onChanged: _onSearchChanged,
+                      inputFormatters: inputRules(),
                       decoration: InputDecoration(
                         labelText: 'Search destination',
                         prefixIcon: const Icon(Icons.search),

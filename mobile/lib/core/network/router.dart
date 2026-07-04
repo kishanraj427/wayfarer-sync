@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'authTokenProvider.dart';
+import '../widgets/app_scaffold_shell.dart';
 import '../../features/tracking/screens/tripMapScreen.dart';
 import '../../features/auth/screens/loginScreen.dart';
 import '../../features/auth/screens/signupScreen.dart';
 import '../../features/trip/screens/tripsScreen.dart';
 import '../../features/trip/screens/createTripScreen.dart';
+import '../../features/profile/screens/profile_screen.dart';
 
 /// Wraps a screen in a shared-axis (horizontal) transition for smooth,
 /// direction-aware navigation between routes.
@@ -68,9 +70,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/signup',
         pageBuilder: (context, state) => _transitionPage(state, const SignupScreen()),
       ),
-      GoRoute(
-        path: '/trips',
-        pageBuilder: (context, state) => _transitionPage(state, const TripsScreen()),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AppScaffoldShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/trips', builder: (context, state) => const TripsScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
+          ]),
+        ],
       ),
       GoRoute(
         path: '/create-trip',

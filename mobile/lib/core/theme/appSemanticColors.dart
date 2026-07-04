@@ -19,6 +19,10 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   final Color destinationPin;
   final Color peerFallback;
   final Color onMarker;
+  final Color activeContainer;
+  final Color onActiveContainer;
+  final Color endedContainer;
+  final Color statValue;
 
   const AppSemanticColors({
     required this.route,
@@ -34,38 +38,50 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     required this.destinationPin,
     required this.peerFallback,
     required this.onMarker,
+    required this.activeContainer,
+    required this.onActiveContainer,
+    required this.endedContainer,
+    required this.statValue,
   });
 
   static const light = AppSemanticColors(
-    route: AppPalette.route500,
-    routeSubtle: AppPalette.routeSubtleLight,
-    onRoute: AppPalette.onRouteLight,
-    signalOnline: AppPalette.signalGreen,
-    signalPending: AppPalette.amber,
+    route: AppPalette.accent,
+    routeSubtle: AppPalette.accentSubtleLight,
+    onRoute: AppPalette.onAccent,
+    signalOnline: AppPalette.green,
+    signalPending: AppPalette.blue,
     hairline: AppPalette.hairline,
     glassFill: AppPalette.glassFillLight,
     glassStroke: AppPalette.hairline,
     contour: AppPalette.contourLight,
-    selfMarker: AppPalette.route500,
-    destinationPin: AppPalette.signalGreen,
-    peerFallback: AppPalette.ink900,
-    onMarker: AppPalette.onRouteLight,
+    selfMarker: AppPalette.accent,
+    destinationPin: AppPalette.accent,
+    peerFallback: AppPalette.blue,
+    onMarker: AppPalette.onAccent,
+    activeContainer: AppPalette.greenContainer,
+    onActiveContainer: AppPalette.onGreenContainer,
+    endedContainer: AppPalette.endedContainer,
+    statValue: AppPalette.rust,
   );
 
   static const dark = AppSemanticColors(
-    route: AppPalette.route500Dark,
-    routeSubtle: AppPalette.routeSubtleDark,
-    onRoute: AppPalette.onRouteDark,
-    signalOnline: AppPalette.signalGreenDark,
-    signalPending: AppPalette.amberDark,
+    route: AppPalette.accentDark,
+    routeSubtle: AppPalette.accentSubtleDark,
+    onRoute: AppPalette.onAccentDark,
+    signalOnline: AppPalette.greenDark,
+    signalPending: AppPalette.blueDark,
     hairline: AppPalette.hairlineDark,
     glassFill: AppPalette.glassFillDark,
     glassStroke: AppPalette.hairlineDark,
     contour: AppPalette.contourDark,
-    selfMarker: AppPalette.route500Dark,
-    destinationPin: AppPalette.signalGreenDark,
-    peerFallback: AppPalette.textHiDark,
-    onMarker: AppPalette.onRouteLight,
+    selfMarker: AppPalette.accentDark,
+    destinationPin: AppPalette.accentDark,
+    peerFallback: AppPalette.blueDark,
+    onMarker: AppPalette.onAccentDark,
+    activeContainer: AppPalette.greenContainerDark,
+    onActiveContainer: AppPalette.onGreenContainerDark,
+    endedContainer: AppPalette.endedContainerDark,
+    statValue: AppPalette.rustDark,
   );
 
   @override
@@ -83,6 +99,10 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     Color? destinationPin,
     Color? peerFallback,
     Color? onMarker,
+    Color? activeContainer,
+    Color? onActiveContainer,
+    Color? endedContainer,
+    Color? statValue,
   }) {
     return AppSemanticColors(
       route: route ?? this.route,
@@ -98,6 +118,10 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
       destinationPin: destinationPin ?? this.destinationPin,
       peerFallback: peerFallback ?? this.peerFallback,
       onMarker: onMarker ?? this.onMarker,
+      activeContainer: activeContainer ?? this.activeContainer,
+      onActiveContainer: onActiveContainer ?? this.onActiveContainer,
+      endedContainer: endedContainer ?? this.endedContainer,
+      statValue: statValue ?? this.statValue,
     );
   }
 
@@ -118,6 +142,11 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
       destinationPin: Color.lerp(destinationPin, other.destinationPin, t)!,
       peerFallback: Color.lerp(peerFallback, other.peerFallback, t)!,
       onMarker: Color.lerp(onMarker, other.onMarker, t)!,
+      activeContainer: Color.lerp(activeContainer, other.activeContainer, t)!,
+      onActiveContainer:
+          Color.lerp(onActiveContainer, other.onActiveContainer, t)!,
+      endedContainer: Color.lerp(endedContainer, other.endedContainer, t)!,
+      statValue: Color.lerp(statValue, other.statValue, t)!,
     );
   }
 }
