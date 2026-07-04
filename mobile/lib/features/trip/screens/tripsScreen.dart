@@ -37,8 +37,11 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
       _errorMessage = null;
     });
 
+    // Capture the client before the async gap so we never call ref after
+    // the widget might have been unmounted.
+    final client = ref.read(apiClientProvider);
+
     try {
-      final client = ref.read(apiClientProvider);
       final response = await client.get(ApiUrl.trips);
       if (mounted) {
         setState(() {
@@ -65,15 +68,18 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
   }
 
   Future<void> _joinTrip(String tripId) async {
+    // Capture everything from ref before the first await so we never
+    // access ref after an async gap (widget may have unmounted by then).
+    final client = ref.read(apiClientProvider);
+    final userId = ref.read(currentUserIdProvider) ?? 'unknown';
+
     try {
-      final client = ref.read(apiClientProvider);
       final response = await client.post(ApiUrl.joinTrip(tripId), {});
       if (!mounted) return;
 
       final alreadyMember = response is Map && response['alreadyMember'] == true;
       if (alreadyMember) {
         // Already part of this trip: go straight to the live map.
-        final userId = ref.read(currentUserIdProvider) ?? 'unknown';
         context.push('/trip/$tripId/map/$userId');
       } else {
         // Newly joined: confirm and refresh the list so the trip appears.
@@ -93,32 +99,13 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
   }
 
   void _showJoinTripDialog() {
-    final controller = TextEditingController();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Join Trip'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Trip ID (UUID)'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.trim().isNotEmpty) {
-                _joinTrip(controller.text.trim());
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Join'),
-          ),
-        ],
-      ),
-    ).then((_) => controller.dispose());
+      // Use a dedicated StatefulWidget so the TextEditingController is
+      // owned and disposed by that widget's own lifecycle — not by a
+      // .then() callback that can fire after this widget is unmounted.
+      builder: (context) => _JoinTripDialog(onJoin: _joinTrip),
+    );
   }
 
   @override
@@ -270,6 +257,55 @@ class _FadeInItem extends StatelessWidget {
         ),
       ),
       child: child,
+    );
+  }
+}
+
+/// A self-contained dialog that owns its TextEditingController so the
+/// controller is always disposed by Flutter's standard widget lifecycle
+/// rather than by a Future.then() that may fire after the parent is gone.
+class _JoinTripDialog extends StatefulWidget {
+  final Future<void> Function(String tripId) onJoin;
+  const _JoinTripDialog({required this.onJoin});
+
+  @override
+  State<_JoinTripDialog> createState() => _JoinTripDialogState();
+}
+
+class _JoinTripDialogState extends State<_JoinTripDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Join Trip'),
+      content: TextField(
+        controller: _controller,
+        decoration: const InputDecoration(labelText: 'Trip ID (UUID)'),
+        autofocus: true,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final id = _controller.text.trim();
+            if (id.isNotEmpty) {
+              widget.onJoin(id);
+              Navigator.pop(context);
+            }
+          },
+          child: const Text('Join'),
+        ),
+      ],
     );
   }
 }

@@ -12,6 +12,7 @@ import '../../../core/widgets/glassPanel.dart';
 import '../providers/liveTrackingProviders.dart';
 import '../providers/mapStateProvider.dart';
 import '../services/locationTrackingService.dart';
+import '../services/osrmRoutingService.dart';
 import '../services/syncService.dart';
 
 class TripMapScreen extends ConsumerStatefulWidget {
@@ -36,14 +37,41 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
   List<dynamic> _members = [];
   bool _isLoadingDetails = true;
 
+  // Saved during initState so dispose() can call stopTracking() without
+  // touching `ref` (which is illegal during dispose in Riverpod).
+  late final LocationTrackingService _trackingService;
+  late final OsrmRoutingService _routingService;
+
+  // Rendered route lines, updated by the service after each fetch.
+  Map<String, List<LatLng>> _routesToDestination = {};
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(locationTrackingServiceProvider)
-          .startTracking(widget.tripId, widget.currentUserId);
+      // Save direct references before any async work so dispose() and
+      // callbacks can use them without touching ref.
+      _trackingService = ref.read(locationTrackingServiceProvider);
+      _routingService  = ref.read(osrmRoutingServiceProvider);
+      _trackingService.startTracking(widget.tripId, widget.currentUserId);
       _fetchTripDetails();
+
+      // Register the live-location listener exactly once, here in
+      // initState, instead of inside build() where it would be
+      // re-registered on every rebuild, causing _dependents.isEmpty
+      // assertion failures and duplicate GlobalKey errors.
+      ref.listen<AsyncValue<MemberLocationUpdate>>(
+        liveLocationStreamProvider(widget.tripId),
+        (previous, next) {
+          if (next is AsyncData<MemberLocationUpdate>) {
+            final update = next.value;
+            ref.read(mapStateProvider.notifier).updateMemberPosition(
+                  update.userId,
+                  LatLng(update.latitude, update.longitude),
+                );
+          }
+        },
+      );
     });
   }
 
@@ -68,9 +96,32 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
     }
   }
 
+  // ── OSRM route refresh ────────────────────────────────────────────────
+
+  /// Asks the service to refresh any stale routes, then flushes the new
+  /// route map into local state so the map layer repaints.
+  Future<void> _refreshRoutes(Map<String, LatLng> positions) async {
+    if (_destinations.isEmpty) return;
+    final dest = _destinations.first;
+    final destLat = (dest['latitude'] as num).toDouble();
+    final destLng = (dest['longitude'] as num).toDouble();
+
+    final updated = await _routingService.fetchRoutesToDestination(
+      destination: LatLng(destLat, destLng),
+      positions: positions,
+    );
+
+    if (updated && mounted) {
+      setState(() {
+        _routesToDestination = Map.of(_routingService.routes);
+      });
+    }
+  }
+
   @override
   void dispose() {
-    ref.read(locationTrackingServiceProvider).stopTracking();
+    // Use the pre-saved service reference — never call ref.read() here.
+    _trackingService.stopTracking();
     _mapController.dispose();
     super.dispose();
   }
@@ -158,17 +209,15 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
       });
     }
 
-    ref.listen<AsyncValue<MemberLocationUpdate>>(liveLocationStreamProvider(widget.tripId), (previous, next) {
-      if (next is AsyncData<MemberLocationUpdate>) {
-        final update = next.value;
-        ref
-            .read(mapStateProvider.notifier)
-            .updateMemberPosition(
-              update.userId,
-              LatLng(update.latitude, update.longitude),
-            );
-      }
-    });
+    // Refresh OSRM routes whenever positions change (post-frame so we
+    // don't trigger setState during a build).
+    if (liveMarkerMap.positions.isNotEmpty && _destinations.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _refreshRoutes(liveMarkerMap.positions);
+      });
+    }
+
+    // NOTE: ref.listen was moved to initState so it is only registered once.
 
     final userMarkers = liveMarkerMap.positions.entries.map((entry) {
       final userId = entry.key;
@@ -249,6 +298,19 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.wayfarersync.mobile',
               ),
+              // ── OSRM road routes (member → destination) ───────────────
+              PolylineLayer(
+                polylines: _routesToDestination.entries
+                    .where((e) => e.value.length >= 2)
+                    .map((e) => Polyline(
+                          points: e.value,
+                          color: _trailColorForUser(e.key).withOpacity(0.55),
+                          strokeWidth: 3.0,
+                          pattern: StrokePattern.dashed(segments: [12.0, 6.0]),
+                        ))
+                    .toList(),
+              ),
+              // ── GPS breadcrumb trails (movement history) ──────────────
               PolylineLayer(
                 polylines: liveMarkerMap.trails.entries
                     .where((entry) => entry.value.length >= 2)
@@ -262,7 +324,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
               MarkerLayer(markers: allMarkers),
             ],
           ),
-          if (!_isLoadingDetails && _members.isNotEmpty)
+          if (!_isLoadingDetails && (_members.isNotEmpty || _destinations.isNotEmpty))
             Positioned(
               top: AppSpace.md,
               left: AppSpace.md,
@@ -274,62 +336,114 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                 ),
                 child: SizedBox(
                   height: 44,
-                  child: ListView.builder(
+                  child: ListView(
                     scrollDirection: Axis.horizontal,
-                    itemCount: _members.length,
-                    itemBuilder: (context, index) {
-                      final member = _members[index];
-                      final userId = member['userId'] as String;
-                      final userEmail = member['user']?['email'] as String? ?? 'User';
-                      final isMe = userId == widget.currentUserId;
-                      final label = isMe ? 'Me' : _getEmailPrefix(userEmail);
-                      final hexColor = member['color'] as String? ?? '#FF5722';
-                      final color = _getMemberColor(hexColor);
+                    children: [
+                      // ── Destination chips (shown first) ───────────────────
+                      ..._destinations.map((dest) {
+                        final lat = (dest['latitude'] as num).toDouble();
+                        final lon = (dest['longitude'] as num).toDouble();
+                        final name = dest['name'] as String? ?? 'Destination';
 
-                      final hasLocation = liveMarkerMap.positions.containsKey(userId);
+                        return Padding(
+                          padding: const EdgeInsets.only(right: AppSpace.sm),
+                          child: ActionChip(
+                            avatar: CircleAvatar(
+                              backgroundColor: context.semantic.destinationPin,
+                              radius: 12,
+                              child: Icon(
+                                Icons.flag,
+                                size: 10,
+                                color: context.semantic.onMarker,
+                              ),
+                            ),
+                            label: Text(
+                              name,
+                              style: monoData(
+                                context,
+                                size: 12,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                            side: BorderSide(
+                              color: context.semantic.destinationPin,
+                              width: 1.5,
+                            ),
+                            onPressed: () {
+                              _mapController.move(LatLng(lat, lon), 15.0);
+                            },
+                          ),
+                        );
+                      }),
 
-                      return Padding(
-                        padding: const EdgeInsets.only(right: AppSpace.sm),
-                        child: ActionChip(
-                          avatar: CircleAvatar(
-                            backgroundColor: color,
-                            radius: 12,
-                            child: Icon(
-                              isMe ? Icons.person : Icons.navigation,
-                              size: 10,
-                              color: context.semantic.onMarker,
-                            ),
+                      // ── Divider between destinations and members ──────────
+                      if (_destinations.isNotEmpty && _members.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpace.xs,
+                            vertical: AppSpace.xs,
                           ),
-                          label: Text(
-                            label,
-                            style: monoData(
-                              context,
-                              size: 12,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
+                          child: VerticalDivider(
+                            width: 1,
+                            thickness: 1,
+                            color: context.semantic.hairline,
                           ),
-                          side: BorderSide(
-                            color: hasLocation
-                                ? context.semantic.signalOnline
-                                : context.semantic.hairline,
-                            width: hasLocation ? 2.0 : 1.0,
-                          ),
-                          onPressed: () {
-                            if (hasLocation) {
-                              final pos = liveMarkerMap.positions[userId]!;
-                              _mapController.move(pos, 15.0);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('No location updates from $label yet.'),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            }
-                          },
                         ),
-                      );
-                    },
+
+                      // ── Member chips ──────────────────────────────────────
+                      ..._members.map((member) {
+                        final userId = member['userId'] as String;
+                        final userEmail = member['user']?['email'] as String? ?? 'User';
+                        final isMe = userId == widget.currentUserId;
+                        final label = isMe ? 'Me' : _getEmailPrefix(userEmail);
+                        final hexColor = member['color'] as String? ?? '#FF5722';
+                        final color = _getMemberColor(hexColor);
+                        final hasLocation = liveMarkerMap.positions.containsKey(userId);
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: AppSpace.sm),
+                          child: ActionChip(
+                            avatar: CircleAvatar(
+                              backgroundColor: color,
+                              radius: 12,
+                              child: Icon(
+                                isMe ? Icons.person : Icons.navigation,
+                                size: 10,
+                                color: context.semantic.onMarker,
+                              ),
+                            ),
+                            label: Text(
+                              label,
+                              style: monoData(
+                                context,
+                                size: 12,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                            side: BorderSide(
+                              color: hasLocation
+                                  ? context.semantic.signalOnline
+                                  : context.semantic.hairline,
+                              width: hasLocation ? 2.0 : 1.0,
+                            ),
+                            onPressed: () {
+                              if (hasLocation) {
+                                final pos = liveMarkerMap.positions[userId]!;
+                                _mapController.move(pos, 15.0);
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('No location updates from $label yet.'),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        );
+                      }),
+
+                    ],
                   ),
                 ),
               ),
