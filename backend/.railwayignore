@@ -1,0 +1,9 @@
+# Railway ignores these during build/deploy
+node_modules
+dist
+.env
+.env.*
+.DS_Store
+*.log
+coverage
+.cache
