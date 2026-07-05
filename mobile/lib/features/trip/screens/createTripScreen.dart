@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:geolocator/geolocator.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -11,6 +12,7 @@ import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTheme.dart';
 import '../../../core/theme/appTokens.dart';
 import '../../../core/util/text_input_rules.dart';
+import '../../../core/widgets/glassPanel.dart';
 import '../../../core/widgets/primaryButton.dart';
 import '../providers/trips_provider.dart';
 import '../repositories/trip_repository.dart';
@@ -27,12 +29,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   final _titleController = TextEditingController();
   final _searchController = TextEditingController();
   final MapController _mapController = MapController();
-  
+
   LatLng? _selectedLocation;
   String? _selectedLocationName;
   List<dynamic> _suggestions = [];
   bool _isSearching = false;
   bool _isSaving = false;
+  bool _isLocating = false;
   Timer? _debounceTimer;
 
   @override
@@ -50,14 +53,22 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       setState(() => _suggestions = []);
       return;
     }
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () => _searchPlaces(query));
+    _debounceTimer = Timer(
+      const Duration(milliseconds: 500),
+      () => _searchPlaces(query),
+    );
   }
 
   Future<void> _searchPlaces(String query) async {
     setState(() => _isSearching = true);
     try {
-      final url = Uri.parse('https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(query)}&format=json&limit=5');
-      final response = await http.get(url, headers: {'User-Agent': 'com.wayfarersync.mobile'});
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(query)}&format=json&limit=5',
+      );
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'com.wayfarersync.mobile'},
+      );
       if (response.statusCode == 200) {
         setState(() {
           _suggestions = jsonDecode(response.body);
@@ -73,8 +84,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
   Future<void> _reverseGeocode(LatLng point) async {
     try {
-      final url = Uri.parse('https://nominatim.openstreetmap.org/reverse?lat=${point.latitude}&lon=${point.longitude}&format=json');
-      final response = await http.get(url, headers: {'User-Agent': 'com.wayfarersync.mobile'});
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?lat=${point.latitude}&lon=${point.longitude}&format=json',
+      );
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'com.wayfarersync.mobile'},
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
@@ -83,15 +99,65 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         });
       } else {
         setState(() {
-          _selectedLocationName = 'Location at (${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)})';
+          _selectedLocationName =
+              'Location at (${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)})';
           _searchController.text = _selectedLocationName!;
         });
       }
     } catch (e) {
       setState(() {
-        _selectedLocationName = 'Location at (${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)})';
+        _selectedLocationName =
+            'Location at (${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)})';
         _searchController.text = _selectedLocationName!;
       });
+    }
+  }
+
+  /// Fetches the device's current GPS position and centres the map on it.
+  /// If no destination is pinned yet, it also drops a marker and reverse-geocodes.
+  Future<void> _locateMe() async {
+    setState(() => _isLocating = true);
+    try {
+      // Ensure permission is granted before calling the hardware
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permission is required.')),
+          );
+        }
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+      final here = LatLng(position.latitude, position.longitude);
+      _mapController.move(here, 15.0);
+
+      // If no destination chosen yet, drop a pin here
+      if (_selectedLocation == null) {
+        setState(() {
+          _selectedLocation = here;
+          _selectedLocationName = 'Fetching address...';
+          _searchController.text = 'Fetching address...';
+        });
+        await _reverseGeocode(here);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not get location: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
     }
   }
 
@@ -114,34 +180,38 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     }
     if (_selectedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select or pin a destination location.')),
+        const SnackBar(
+          content: Text('Please select or pin a destination location.'),
+        ),
       );
       return;
     }
 
     setState(() => _isSaving = true);
     try {
-      final createdTrip = await ref.read(tripRepositoryProvider).createTrip(
-        title: _titleController.text.trim(),
-        startedAt: DateTime.now(),
-        destinations: [
-          {
-            'name': _selectedLocationName ?? 'Destination',
-            'latitude': _selectedLocation!.latitude,
-            'longitude': _selectedLocation!.longitude,
-            'order': 0,
-          }
-        ],
-      );
+      final createdTrip = await ref
+          .read(tripRepositoryProvider)
+          .createTrip(
+            title: _titleController.text.trim(),
+            startedAt: DateTime.now(),
+            destinations: [
+              {
+                'name': _selectedLocationName ?? 'Destination',
+                'latitude': _selectedLocation!.latitude,
+                'longitude': _selectedLocation!.longitude,
+                'order': 0,
+              },
+            ],
+          );
       ref.read(tripsProvider.notifier).refresh();
       if (mounted) {
         await _showTripCreatedDialog(createdTrip.id, createdTrip.title);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to start trip: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to start trip: $e')));
       }
     } finally {
       if (mounted) {
@@ -159,7 +229,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle, size: 48, color: context.semantic.signalOnline),
+            Icon(
+              Icons.check_circle,
+              size: 48,
+              color: context.semantic.signalOnline,
+            ),
             const SizedBox(height: AppSpace.md),
             Text('Trip created', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: AppSpace.xs),
@@ -204,15 +278,16 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Start new trip'),
-      ),
+      appBar: AppBar(title: const Text('Start new trip')),
       body: Stack(
         children: [
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: const LatLng(20.5937, 78.9629), // Default center on India
+              initialCenter: const LatLng(
+                20.5937,
+                78.9629,
+              ), // Default center on India
               initialZoom: 5.0,
               onTap: (tapPosition, point) {
                 setState(() {
@@ -249,7 +324,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             top: AppSpace.md,
             left: AppSpace.md,
             right: AppSpace.md,
-            child: Card(
+            child: GlassPanel(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpace.md),
                 child: Column(
@@ -259,6 +334,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                     TextField(
                       controller: _titleController,
                       inputFormatters: inputRules(),
+                      textCapitalization: TextCapitalization.sentences,
                       decoration: const InputDecoration(
                         labelText: 'Trip name',
                         prefixIcon: Icon(Icons.edit_outlined),
@@ -269,6 +345,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       controller: _searchController,
                       onChanged: _onSearchChanged,
                       inputFormatters: inputRules(),
+                      textCapitalization: TextCapitalization.sentences,
                       decoration: InputDecoration(
                         labelText: 'Search destination',
                         prefixIcon: const Icon(Icons.search),
@@ -278,7 +355,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                                 child: SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 ),
                               )
                             : null,
@@ -293,7 +372,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                           itemCount: _suggestions.length,
                           itemBuilder: (context, index) {
                             final suggestion = _suggestions[index];
-                            final name = suggestion['display_name'] ?? 'Unknown location';
+                            final name =
+                                suggestion['display_name'] ??
+                                'Unknown location';
                             final lat = double.parse(suggestion['lat']);
                             final lon = double.parse(suggestion['lon']);
                             return ListTile(
@@ -303,7 +384,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              onTap: () => _selectLocation(LatLng(lat, lon), name),
+                              onTap: () =>
+                                  _selectLocation(LatLng(lat, lon), name),
                             );
                           },
                         ),
@@ -324,24 +406,65 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               ),
             ),
           ),
+          // ── Bottom controls: locate-me + Start Trip bar ───────────────
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: SafeArea(
               top: false,
-              child: Container(
-                padding: const EdgeInsets.all(AppSpace.md),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  border: Border(top: BorderSide(color: context.semantic.hairline)),
-                ),
-                child: PrimaryButton(
-                  label: 'Start trip',
-                  icon: Icons.flag_outlined,
-                  loading: _isSaving,
-                  onPressed: (_isSaving || _selectedLocation == null) ? null : _startTrip,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Locate-me button floats above the bar, right-aligned
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      right: AppSpace.md,
+                      bottom: AppSpace.sm,
+                    ),
+                    child: GlassPanel(
+                      padding: const EdgeInsets.all(AppSpace.xs),
+                      child: _isLocating
+                          ? const SizedBox(
+                              width: 40,
+                              height: 40,
+                              child: Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.my_location),
+                              tooltip: 'Locate me',
+                              onPressed: _locateMe,
+                            ),
+                    ),
+                  ),
+                  // Start Trip bar — full width
+                  Container(
+                    padding: const EdgeInsets.all(AppSpace.md),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      border: Border(
+                        top: BorderSide(color: context.semantic.hairline),
+                      ),
+                    ),
+                    child: PrimaryButton(
+                      label: 'Start trip',
+                      icon: Icons.flag_outlined,
+                      loading: _isSaving,
+                      onPressed: (_isSaving || _selectedLocation == null)
+                          ? null
+                          : _startTrip,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

@@ -8,6 +8,7 @@ import tripRoutes from "./routes/trip.route";
 import pathRoutes from "./routes/path.route";
 import { createServer } from "http";
 import { initWebSocketServer } from "./websocket";
+import { globalLimiter, authLimiter, apiLimiter } from "./middleware/rateLimit.middleware";
 
 dotenv.config();
 
@@ -16,15 +17,16 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use(globalLimiter);
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiSpec));
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-app.use("/api/auth", authRoutes);
-app.use("/api/trip", tripRoutes);
-app.use("/api/trip/:id/paths", pathRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/trip", apiLimiter, tripRoutes);
+app.use("/api/trip/:id/paths", apiLimiter, pathRoutes);
 
 // Wrap your Express application within an HTTP Server core instance
 const server = createServer(app);

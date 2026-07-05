@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/network/apiUrl.dart';
@@ -26,6 +27,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _confirmController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
 
   Future<void> _signup() async {
     // Basic client-side validation
@@ -120,6 +123,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             controller: _firstNameController,
                             enabled: !_isLoading,
                             decoration: const InputDecoration(labelText: 'First name'),
+                            textCapitalization: TextCapitalization.words,
                             inputFormatters: inputRules(),
                           ),
                           const SizedBox(height: AppSpace.md),
@@ -127,6 +131,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             controller: _lastNameController,
                             enabled: !_isLoading,
                             decoration: const InputDecoration(labelText: 'Last name'),
+                            textCapitalization: TextCapitalization.words,
                             inputFormatters: inputRules(),
                           ),
                           const SizedBox(height: AppSpace.md),
@@ -141,17 +146,39 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           TextField(
                             controller: _passwordController,
                             enabled: !_isLoading,
-                            decoration: const InputDecoration(labelText: 'Password'),
-                            obscureText: true,
+                            obscureText: _obscurePassword,
                             inputFormatters: inputRules(),
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                ),
+                                tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                            ),
                           ),
                           const SizedBox(height: AppSpace.md),
                           TextField(
                             controller: _confirmController,
                             enabled: !_isLoading,
-                            decoration: const InputDecoration(labelText: 'Confirm password'),
-                            obscureText: true,
+                            obscureText: _obscureConfirm,
                             inputFormatters: inputRules(),
+                            decoration: InputDecoration(
+                              labelText: 'Confirm password',
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirm
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                ),
+                                tooltip: _obscureConfirm ? 'Show password' : 'Hide password',
+                                onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                              ),
+                            ),
                           ),
                           if (_errorMessage != null) ...[
                             const SizedBox(height: AppSpace.md),

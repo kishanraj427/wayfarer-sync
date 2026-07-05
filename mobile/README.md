@@ -85,9 +85,12 @@ The UI is driven entirely by a centralized theme so appearance can change in fut
 
 ### Prerequisites
 *   **Flutter SDK**: Installed and configured (recommend channel stable).
+*   **Dart SDK**: Bundled with Flutter — no separate install needed.
 *   **Target Devices**:
-    *   **Android**: Android Studio emulator or physical device.
-    *   **iOS**: Xcode simulator (requires macOS) or physical device.
+    *   **Android**: Android Studio + emulator, or a physical device with USB debugging enabled.
+    *   **iOS**: Xcode (macOS only) + simulator or a provisioned physical device.
+*   **For iOS release builds**: An active Apple Developer account and a valid provisioning profile/certificate.
+*   **For Android release builds**: A generated keystore file (see [Android Signing](#android-signing) below).
 
 ---
 
@@ -99,32 +102,81 @@ flutter pub get
 
 ---
 
-### 2. Code Generation (Drift Database Client)
-This project uses **Drift** for local SQLite schema structures, which relies on code generation. Whenever you clone the project or modify schema entities inside [localDatabase.dart](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/mobile/lib/core/storage/localDatabase.dart), you **MUST** run the code generator:
+### 2. Code Generation
+This project uses **Drift** (SQLite ORM) and **Riverpod Generator** — both require Dart code generation. Run this command after cloning, and again whenever you modify Drift schema files or annotated Riverpod providers:
 
+#### One-time / after schema changes
 ```bash
 dart run build_runner build --delete-conflicting-outputs
 ```
-This command generates the missing [localDatabase.g.dart](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/mobile/lib/core/storage/localDatabase.g.dart) file which holds generated query classes and model converters.
 
----
-
-### 3. Server Configuration & Local Network Settings
-By default, the client points to `http://192.168.1.7:3000` inside the central URL configuration file:
-*   [apiUrl.dart](file:///C:/Users/Raj%20Kishan%20Prashad/Desktop/wayfarer-sync/mobile/lib/core/network/apiUrl.dart): contains `baseUrl` for HTTP requests and `wsBaseUrl` for WebSocket connections.
-
-To test on emulators/devices, adjust these addresses:
-*   **Android Emulator**: Change `localhost` to `10.0.2.2` (Android’s gateway loopback address to the host server).
-*   **iOS Simulator**: `localhost` works out of the box.
-*   **Physical Device**: Use your workstation's local network IP (e.g. `http://192.168.1.50:3000`).
-
----
-
-### 4. Running the App
-Start a emulator/simulator or plug in a device, and launch the build:
+#### Watch mode (auto-regenerates on every file save during development)
 ```bash
+dart run build_runner watch --delete-conflicting-outputs
+```
+
+> **Files generated:**
+> - `lib/core/storage/localDatabase.g.dart` — Drift query classes & model converters
+> - `lib/features/**/**.g.dart` — Riverpod provider implementations
+
+---
+
+### 3. Server Configuration & Environment Variables
+
+The base URLs are read from **compile-time environment variables** injected via `--dart-define`. The default production backend is hosted on Railway:
+
+| Variable | Default (production) |
+| :--- | :--- |
+| `BASE_URL` | `https://wayfarer-sync-production.up.railway.app/api` |
+| `WS_BASE_URL` | `wss://wayfarer-sync-production.up.railway.app` |
+
+These are defined in [`lib/core/network/apiUrl.dart`](lib/core/network/apiUrl.dart) using `String.fromEnvironment()`.
+
+#### Running / building against a local server
+
+Pass `--dart-define` flags to override the defaults for your target:
+
+```bash
+# Android Emulator (host loopback is 10.0.2.2)
+flutter run \
+  --dart-define=BASE_URL=http://10.0.2.2:3000/api \
+  --dart-define=WS_BASE_URL=ws://10.0.2.2:3000
+
+# iOS Simulator (localhost resolves to the host)
+flutter run \
+  --dart-define=BASE_URL=http://localhost:3000/api \
+  --dart-define=WS_BASE_URL=ws://localhost:3000
+
+# Physical Device (use your machine's LAN IP)
+flutter run \
+  --dart-define=BASE_URL=http://192.168.1.50:3000/api \
+  --dart-define=WS_BASE_URL=ws://192.168.1.50:3000
+```
+
+The same flags apply to all `flutter build` commands:
+```bash
+# e.g. release APK pointed at local server
+flutter build apk --release \
+  --dart-define=BASE_URL=http://192.168.1.50:3000/api \
+  --dart-define=WS_BASE_URL=ws://192.168.1.50:3000
+```
+
+> **No flags needed for production.** Omitting `--dart-define` automatically uses the Railway production URLs.
+
+---
+
+### 4. Running the App (Debug)
+Start an emulator/simulator or plug in a device, then launch in debug mode:
+```bash
+# Default device
 flutter run
 ```
+
+---
+
+## 📦 Building & Release
+
+For full build instructions (APK, AAB, IPA), signing setup, environment variable configuration, and store submission steps, see **[RELEASE.md](RELEASE.md)**.
 
 ---
 

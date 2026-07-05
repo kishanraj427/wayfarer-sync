@@ -23,6 +23,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
+  bool _obscurePassword = true;
 
   Future<void> _login() async {
     // Basic client-side validation
@@ -116,9 +117,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           TextField(
                             controller: _passwordController,
                             enabled: !_isLoading,
-                            decoration: const InputDecoration(labelText: 'Password'),
-                            obscureText: true,
+                            obscureText: _obscurePassword,
                             inputFormatters: inputRules(),
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                ),
+                                tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                            ),
                           ),
                           if (_errorMessage != null) ...[
                             const SizedBox(height: AppSpace.md),
