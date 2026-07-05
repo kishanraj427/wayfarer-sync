@@ -6,7 +6,6 @@ class ApiUrl {
   static const String signup = '/auth/signup';
   static const String me = '/auth/me';
   static const String trips = '/trip';
-  
 
   static String joinTrip(String tripId) => '/trip/$tripId/join';
   static String endTrip(String tripId) => '/trip/$tripId/end';
