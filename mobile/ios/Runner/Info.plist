@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Wayfarer Sync uses your location to track your position on the trip map and share it with your travel group in real time.</string>
+	<string>Wire uses your location to track your position on the trip map and share it with your travel group in real time.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Wayfarer Sync uses your location in the background to continue recording your path and syncing it with your group even when the app is not in the foreground.</string>
+	<string>Wire uses your location in the background to continue recording your path and syncing it with your group even when the app is not in the foreground.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
