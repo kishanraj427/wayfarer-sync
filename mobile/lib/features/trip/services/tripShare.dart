@@ -3,7 +3,7 @@ import 'package:share_plus/share_plus.dart';
 
 /// Builds the human-readable message shared/copied to invite others to a trip.
 String buildTripShareText({required String tripId, required String title}) {
-  return 'Join my trip "$title" on Wayfarer Sync!\n'
+  return 'Join my trip "$title" on Wire!\n'
       'Trip ID: $tripId\n'
       'Open the app, tap Join Trip, and paste this ID.';
 }

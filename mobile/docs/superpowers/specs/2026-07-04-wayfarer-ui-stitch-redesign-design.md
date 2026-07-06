@@ -1,4 +1,4 @@
-# Wayfarer Sync — Stitch UI Redesign (Mobile)
+# Wire — Stitch UI Redesign (Mobile)
 
 **Date:** 2026-07-04
 **Scope:** `wayfarer-sync/mobile` (primary) + a small `wayfarer-sync/backend` change set

@@ -1,6 +1,6 @@
-# Wayfarer Sync – Mobile Application (Flutter)
+# Wire – Mobile Application (Flutter)
 
-Wayfarer Sync is an offline-first, collaborative trip itinerary and real-time location mapping application built with Flutter. This mobile client relies on a local reactive SQLite database cache layer to support continuous GPS tracking in areas with compromised network coverage, automatically synchronizing data trails back to the backend once a stable internet connection is established.
+Wire is an offline-first, collaborative trip itinerary and real-time location mapping application built with Flutter. This mobile client relies on a local reactive SQLite database cache layer to support continuous GPS tracking in areas with compromised network coverage, automatically synchronizing data trails back to the backend once a stable internet connection is established.
 
 ---
 

@@ -1,8 +1,8 @@
-# Wayfarer Sync — Stitch UI Redesign Implementation Plan
+# Wire — Stitch UI Redesign Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Reskin the Wayfarer Sync mobile app to the Stitch design language (token-driven, light + dark), add a bottom-nav shell with a new Profile tab and Trips search, and give users a real first/last name (small backend change) for name-based avatars.
+**Goal:** Reskin the Wire the Stitch design language (token-driven, light + dark), add a bottom-nav shell with a new Profile tab and Trips search, and give users a real first/last name (small backend change) for name-based avatars.
 
 **Architecture:** All visual change flows from the central theme token layer (`core/theme/`), so screens/widgets never hardcode colors. A `StatefulShellRoute` adds a 2-tab shell (Trips · Profile). Two shared utils — a name monogram and a no-emoji input formatter — are consumed across screens. A separate backend PR adds `firstName`/`lastName` to the `User` model and signup.
 

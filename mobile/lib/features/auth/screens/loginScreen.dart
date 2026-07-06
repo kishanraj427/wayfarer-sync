@@ -89,7 +89,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Wayfarer Sync',
+                    'Wire',
                     style: textTheme.displaySmall,
                     textAlign: TextAlign.center,
                   ),

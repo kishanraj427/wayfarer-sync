@@ -1,6 +1,6 @@
-# Wayfarer Sync — Release & Build Guide
+# Wire — Release & Build Guide
 
-This document covers everything needed to build, sign, and ship the Wayfarer Sync mobile app for both **Android** and **iOS**.
+This document covers everything needed to build, sign, and ship the Wire mobile app for both **Android** and **iOS**.
 
 For general project setup and local development, see [README.md](README.md).
 
