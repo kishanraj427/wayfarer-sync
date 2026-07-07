@@ -57,18 +57,21 @@ export const roomManager = {
     senderUserId: string,
     type: string,
     payload: Record<string, any>,
-  ): void {
+  ): number {
     const roomMembers = rooms.get(tripId);
-    if (!roomMembers) return;
+    if (!roomMembers) return 0;
 
     const messageString = JSON.stringify({ type, payload });
 
+    let recipientCount = 0;
     roomMembers.forEach((socket, userId) => {
       // Never mirror data back to the person who broadcast it
       if (userId !== senderUserId && socket.readyState === WebSocket.OPEN) {
         socket.send(messageString);
+        recipientCount++;
       }
     });
+    return recipientCount;
   },
 
   /**
