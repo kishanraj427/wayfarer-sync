@@ -12,4 +12,5 @@ class ApiUrl {
   static String tripDetails(String tripId) => '/trip/$tripId';
   static String tripMembers(String tripId) => '/trip/$tripId/members';
   static String uploadBatch(String tripId) => '/trip/$tripId/paths/batch';
+  static String tripPaths(String tripId) => '/trip/$tripId/paths';
 }

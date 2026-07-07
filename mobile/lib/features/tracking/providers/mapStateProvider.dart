@@ -32,6 +32,26 @@ class MapStateNotifier extends StateNotifier<UserLiveMarkerState> {
 
     state = UserLiveMarkerState(updatedPositions, updatedTrails);
   }
+
+  /// Seeds movement history fetched from the backend when the map opens.
+  /// Only trails (the drawn path) are seeded — never positions — so the live
+  /// marker and the "live members" top bar stay driven purely by fresh frames,
+  /// while a member's earlier route is still visible. Skips any user whose
+  /// trail live updates have already begun filling.
+  void hydrateHistory(Map<String, List<LatLng>> historyByUser) {
+    final updatedTrails = Map<String, List<LatLng>>.from(state.trails);
+
+    historyByUser.forEach((userId, points) {
+      if (points.isEmpty || updatedTrails.containsKey(userId)) return;
+
+      final cappedTrail = points.length > maxTrailPoints
+          ? points.sublist(points.length - maxTrailPoints)
+          : List<LatLng>.from(points);
+      updatedTrails[userId] = cappedTrail;
+    });
+
+    state = UserLiveMarkerState(state.positions, updatedTrails);
+  }
 }
 
 final mapStateProvider = StateNotifierProvider<MapStateNotifier, UserLiveMarkerState>((ref) {

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../core/network/apiUrl.dart';
 import '../../../core/network/apiClient.dart';
 import '../../../core/storage/localDatabase.dart';
@@ -27,6 +28,25 @@ class PathRepository {
     
     // Returns the count integer parsed out of your backend batchSuccessDataSchema
     return responseData['count'] as int;
+  }
+
+  /// Fetches every member's recorded path for the trip, grouped by userId and
+  /// ordered oldest→newest (the backend returns points sorted by timestamp).
+  /// Used to seed the map with movement history when the screen opens, so a
+  /// member's earlier trail is visible before any new live frames arrive.
+  Future<Map<String, List<LatLng>>> getTripPaths(String tripId) async {
+    // Calls GET /api/trip/:id/paths → unwrapped `data` is the point array.
+    final responseData = await _apiClient.get(ApiUrl.tripPaths(tripId));
+    final pointList = responseData as List<dynamic>;
+
+    final trailsByUser = <String, List<LatLng>>{};
+    for (final point in pointList) {
+      final userId = point['userId'] as String;
+      final latitude = (point['latitude'] as num).toDouble();
+      final longitude = (point['longitude'] as num).toDouble();
+      (trailsByUser[userId] ??= <LatLng>[]).add(LatLng(latitude, longitude));
+    }
+    return trailsByUser;
   }
 }
 
