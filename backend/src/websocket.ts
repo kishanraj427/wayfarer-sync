@@ -79,6 +79,9 @@ export const initWebSocketServer = (server: HttpServer): void => {
   wss.on("connection", (ws: WebSocket, userId: string, tripId: string) => {
     // Add the fresh validated socket to the structural Room Manager map
     roomManager.addUser(tripId, userId, ws);
+    console.log(
+      `[WS] connected user=${userId} trip=${tripId} roomSize=${roomManager.getActiveCount(tripId)}`,
+    );
 
     // Listen for real-time location updates coming from the phone
     ws.on("message", async (message: string) => {
@@ -90,13 +93,21 @@ export const initWebSocketServer = (server: HttpServer): void => {
           const { latitude, longitude, timestamp, accuracy } = parsedPayload;
 
           // A. Broadcast position immediately to everyone else in the group
-          roomManager.broadcastToRoom(tripId, userId, "member_location", {
+          const recipientCount = roomManager.broadcastToRoom(
+            tripId,
             userId,
-            latitude,
-            longitude,
-            timestamp,
-            accuracy: accuracy ?? null,
-          });
+            "member_location",
+            {
+              userId,
+              latitude,
+              longitude,
+              timestamp,
+              accuracy: accuracy ?? null,
+            },
+          );
+          console.log(
+            `[WS] location_update from=${userId} trip=${tripId} roomSize=${roomManager.getActiveCount(tripId)} delivered=${recipientCount}`,
+          );
 
           // B. Silently persist this individual point using your path service in the background
           pathService
@@ -130,6 +141,9 @@ export const initWebSocketServer = (server: HttpServer): void => {
     // Remove connection entries gracefully when sockets close or disconnect
     ws.on("close", () => {
       roomManager.removeUser(tripId, userId, ws);
+      console.log(
+        `[WS] closed user=${userId} trip=${tripId} roomSize=${roomManager.getActiveCount(tripId)}`,
+      );
     });
 
     ws.on("error", (err) => {
