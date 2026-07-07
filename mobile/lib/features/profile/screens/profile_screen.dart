@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/appRoutes.dart';
 import '../../../core/constants/appStrings.dart';
+import '../../../core/motion/motion.dart';
 import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTokens.dart';
@@ -70,19 +71,21 @@ class ProfileScreen extends ConsumerWidget {
               child: Text(
                 AppStrings.noPastTrips,
                 style: Theme.of(context).textTheme.bodyMedium,
-              ),
+              ).appEntrance(context),
             )
           else
-            ...endedTrips.map(
-              (trip) => Padding(
+            ...endedTrips.asMap().entries.map(
+              (entry) => Padding(
                 padding: const EdgeInsets.only(bottom: AppSpace.sm),
                 child: HistoryRow(
-                  title: trip.title,
-                  subtitle: trip.startedAt == null
+                  title: entry.value.title,
+                  subtitle: entry.value.startedAt == null
                       ? ''
-                      : DateFormat('MMM d, yyyy').format(trip.startedAt!),
-                  onTap: () => context.push(AppRoutes.tripMap(tripId: trip.id, userId: userId)),
-                ),
+                      : DateFormat('MMM d, yyyy').format(entry.value.startedAt!),
+                  onTap: () => context.push(
+                    AppRoutes.tripMap(tripId: entry.value.id, userId: userId),
+                  ),
+                ).appEntrance(context, index: entry.key),
               ),
             ),
           const SizedBox(height: AppSpace.lg),

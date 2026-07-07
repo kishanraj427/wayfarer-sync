@@ -1,6 +1,9 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../constants/appMotion.dart';
 import '../constants/appStrings.dart';
+import '../motion/motion.dart';
 import '../theme/appSemanticColors.dart';
 
 class AppScaffoldShell extends StatelessWidget {
@@ -10,7 +13,21 @@ class AppScaffoldShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: navigationShell,
+      body: motionEnabled(context)
+          ? PageTransitionSwitcher(
+              duration: AppMotion.base,
+              transitionBuilder: (child, primaryAnimation, secondaryAnimation) =>
+                  FadeThroughTransition(
+                animation: primaryAnimation,
+                secondaryAnimation: secondaryAnimation,
+                child: child,
+              ),
+              child: KeyedSubtree(
+                key: ValueKey<int>(navigationShell.currentIndex),
+                child: navigationShell,
+              ),
+            )
+          : navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: (index) => navigationShell.goBranch(

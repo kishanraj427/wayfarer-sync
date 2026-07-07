@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:wayfarer_sync_mobile/features/tracking/models/realtimeEvent.dart';
+import '../../../core/constants/appMotion.dart';
 import '../../../core/constants/appStrings.dart';
 import '../../../core/constants/appConstants.dart';
 import '../../../core/constants/appRoutes.dart';
+import '../../../core/motion/motion.dart';
 import '../../../core/network/apiUrl.dart';
 import '../../../core/network/apiClient.dart';
 import '../../../core/theme/appSemanticColors.dart';
@@ -319,7 +321,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
               ),
             ),
           ],
-        ),
+        ).appPopIn(context),
       );
     }).toList();
 
@@ -349,7 +351,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
               ),
             ],
           ),
-        ),
+        ).appPopIn(context),
       );
     }).toList();
 
@@ -629,9 +631,13 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                             ),
                           ),
                           const SizedBox(width: AppSpace.xs),
-                          Text(
-                            isOnline ? AppStrings.statusSyncing : AppStrings.statusOffline,
-                            style: Theme.of(context).textTheme.bodyMedium,
+                          AnimatedSwitcher(
+                            duration: AppMotion.fast,
+                            child: Text(
+                              isOnline ? AppStrings.statusSyncing : AppStrings.statusOffline,
+                              key: ValueKey<bool>(isOnline),
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
                           ),
                         ],
                       ),

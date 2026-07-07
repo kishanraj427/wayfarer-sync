@@ -7,9 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/constants/appConstants.dart';
+import '../../../core/constants/appMotion.dart';
 import '../../../core/constants/appRoutes.dart';
 import '../../../core/constants/appStrings.dart';
+import '../../../core/motion/motion.dart';
 import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTheme.dart';
@@ -232,11 +235,25 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.check_circle,
-              size: 48,
-              color: context.semantic.signalOnline,
-            ),
+            motionEnabled(context)
+                ? Icon(
+                    Icons.check_circle,
+                    size: 48,
+                    color: context.semantic.signalOnline,
+                  )
+                    .animate()
+                    .scale(
+                      begin: const Offset(0.4, 0.4),
+                      end: const Offset(1, 1),
+                      duration: AppMotion.slow,
+                      curve: Curves.easeOutBack,
+                    )
+                    .fadeIn(duration: AppMotion.base)
+                : Icon(
+                    Icons.check_circle,
+                    size: 48,
+                    color: context.semantic.signalOnline,
+                  ),
             const SizedBox(height: AppSpace.md),
             Text(AppStrings.tripCreatedTitle, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: AppSpace.xs),

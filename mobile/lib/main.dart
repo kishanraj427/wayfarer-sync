@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/constants/appMotion.dart';
 import 'core/constants/appStrings.dart';
 import 'core/network/authTokenProvider.dart';
 import 'core/router/router.dart';
@@ -16,6 +18,9 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  Animate.defaultDuration = AppMotion.base;
+  Animate.defaultCurve = AppMotion.curveStandard;
 
   String? token;
   ThemeMode initialThemeMode = ThemeMode.light;
