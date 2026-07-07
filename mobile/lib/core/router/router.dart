@@ -6,11 +6,11 @@ import '../constants/appRoutes.dart';
 import '../constants/appStrings.dart';
 import '../network/authTokenProvider.dart';
 import '../widgets/app_scaffold_shell.dart';
-import '../../features/tracking/screens/tripMapScreen.dart';
-import '../../features/auth/screens/loginScreen.dart';
-import '../../features/auth/screens/signupScreen.dart';
-import '../../features/trip/screens/tripsScreen.dart';
-import '../../features/trip/screens/createTripScreen.dart';
+import '../../features/tracking/screens/trip_map_screen.dart';
+import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/signup_screen.dart';
+import '../../features/trip/screens/trips_screen.dart';
+import '../../features/trip/screens/create_trip_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 
 /// Wraps a screen in a shared-axis (horizontal) transition for smooth,

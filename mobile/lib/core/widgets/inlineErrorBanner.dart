@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../constants/appMotion.dart';
+import '../motion/motion.dart';
 import '../theme/appSemanticColors.dart';
 import '../theme/appTokens.dart';
 
@@ -11,7 +14,7 @@ class InlineErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final semantic = context.semantic;
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    return Container(
+    final banner = Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpace.md),
       decoration: BoxDecoration(
@@ -29,5 +32,10 @@ class InlineErrorBanner extends StatelessWidget {
         ],
       ),
     );
+    if (!motionEnabled(context)) return banner;
+    return banner
+        .animate()
+        .fadeIn(duration: AppMotion.fast, curve: AppMotion.curveStandard)
+        .shakeX(hz: 4, amount: 2, duration: AppMotion.slow);
   }
 }

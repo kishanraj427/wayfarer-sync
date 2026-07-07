@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/appRoutes.dart';
 import '../../../core/constants/appStrings.dart';
+import '../../../core/motion/motion.dart';
 import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTokens.dart';
@@ -113,7 +114,7 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
             label: const Text(AppStrings.newTrip),
           ),
         ],
-      ),
+      ).appEntrance(context),
     );
   }
 
@@ -181,13 +182,15 @@ class _Dashboard extends StatelessWidget {
             ],
           ),
           const SectionHeader(label: AppStrings.activeTripsHeader),
-          ...visible.map((trip) => _cardFor(context, trip)),
+          ...visible.asMap().entries.map(
+                (entry) => _cardFor(context, entry.value, entry.key),
+              ),
         ],
       ),
     );
   }
 
-  Widget _cardFor(BuildContext context, Trip trip) {
+  Widget _cardFor(BuildContext context, Trip trip, int index) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.md),
       child: TripDashboardCard(
@@ -199,7 +202,7 @@ class _Dashboard extends StatelessWidget {
         onShare: () => shareTrip(tripId: trip.id, title: trip.title),
         onEnd: () => _confirmEnd(context, trip),
       ),
-    );
+    ).appEntrance(context, index: index);
   }
 
   Future<void> _confirmEnd(BuildContext context, Trip trip) async {
@@ -263,7 +266,7 @@ class _ErrorView extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ).appEntrance(context);
   }
 }
 
@@ -296,7 +299,7 @@ class _EmptyView extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ).appEntrance(context);
   }
 }
 
@@ -323,7 +326,7 @@ class _NoMatchView extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ).appEntrance(context);
   }
 }
 
