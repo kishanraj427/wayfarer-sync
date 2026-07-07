@@ -1,8 +1,9 @@
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:latlong2/latlong.dart';
+import '../../../core/constants/appConstants.dart';
 
 /// Maximum number of coordinates retained per user trail to bound memory.
-const int maxTrailPoints = 500;
+const int maxTrailPoints = AppConstants.maxTrailPoints;
 
 /// Latest coordinate per user (for markers/centering) plus an ordered
 /// coordinate history per user (for polylines).

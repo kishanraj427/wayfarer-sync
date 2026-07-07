@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/constants/appStrings.dart';
 import 'core/network/authTokenProvider.dart';
-import 'core/network/router.dart';
+import 'core/router/router.dart';
 import 'core/theme/appTheme.dart';
 import 'core/theme/themeModeController.dart';
 import 'features/tracking/providers/connectivityProvider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   String? token;
   ThemeMode initialThemeMode = ThemeMode.light;
@@ -42,7 +49,7 @@ class WayfarerSyncApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
-      title: 'Wire',
+      title: AppStrings.appName,
       debugShowCheckedModeBanner: false,
       theme: buildLightTheme(),
       darkTheme: buildDarkTheme(),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/appRoutes.dart';
+import '../../../core/constants/appStrings.dart';
 import '../../../core/network/apiUrl.dart';
 import '../../../core/network/apiClient.dart';
 import '../../../core/network/authTokenProvider.dart';
@@ -29,7 +31,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // Basic client-side validation
     if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
       setState(() {
-        _errorMessage = 'Email and password fields cannot be empty.';
+        _errorMessage = AppStrings.emptyCredentials;
       });
       return;
     }
@@ -89,13 +91,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Wire',
+                    AppStrings.appName,
                     style: textTheme.displaySmall,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppSpace.sm),
                   Text(
-                    'Find your people on the map.',
+                    AppStrings.loginTagline,
                     style: textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
@@ -109,7 +111,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           TextField(
                             controller: _emailController,
                             enabled: !_isLoading,
-                            decoration: const InputDecoration(labelText: 'Email address'),
+                            decoration: const InputDecoration(labelText: AppStrings.emailLabel),
                             keyboardType: TextInputType.emailAddress,
                             inputFormatters: inputRules(),
                           ),
@@ -120,14 +122,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             obscureText: _obscurePassword,
                             inputFormatters: inputRules(),
                             decoration: InputDecoration(
-                              labelText: 'Password',
+                              labelText: AppStrings.passwordLabel,
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _obscurePassword
                                       ? Icons.visibility_off_outlined
                                       : Icons.visibility_outlined,
                                 ),
-                                tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                                tooltip: _obscurePassword ? AppStrings.showPassword : AppStrings.hidePassword,
                                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                               ),
                             ),
@@ -138,14 +140,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ],
                           const SizedBox(height: AppSpace.lg),
                           PrimaryButton(
-                            label: 'Log in',
+                            label: AppStrings.loginButton,
                             loading: _isLoading,
                             onPressed: _isLoading ? null : _login,
                           ),
                           const SizedBox(height: AppSpace.sm),
                           TextButton(
-                            onPressed: _isLoading ? null : () => context.go('/signup'),
-                            child: const Text("Don't have an account? Sign up"),
+                            onPressed: _isLoading ? null : () => context.go(AppRoutes.signup),
+                            child: const Text(AppStrings.noAccountPrompt),
                           ),
                         ],
                       ),

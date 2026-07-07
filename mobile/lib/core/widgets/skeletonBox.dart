@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/appConstants.dart';
 import '../theme/appTokens.dart';
 
 /// A softly pulsing placeholder for load states. Uses a theme surface tone and
@@ -28,7 +29,7 @@ class _SkeletonBoxState extends State<SkeletonBox>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1100),
+      duration: AppConstants.skeletonShimmerDuration,
     )..repeat(reverse: true);
   }
 

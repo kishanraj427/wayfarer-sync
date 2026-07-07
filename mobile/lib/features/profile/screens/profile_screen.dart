@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/constants/appRoutes.dart';
+import '../../../core/constants/appStrings.dart';
 import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTokens.dart';
@@ -38,35 +40,35 @@ class ProfileScreen extends ConsumerWidget {
         trips.fold<int>(0, (sum, trip) => sum + trip.destinations.length);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(title: const Text(AppStrings.profileTitle)),
       body: ListView(
         padding: const EdgeInsets.all(AppSpace.md),
         children: [
           _IdentitySection(currentUserAsync: currentUserAsync),
           const SizedBox(height: AppSpace.lg),
-          const SectionHeader(label: 'Travel Summary'),
+          const SectionHeader(label: AppStrings.travelSummary),
           Row(
             children: [
               Expanded(
-                child: StatTile(label: 'Trips', value: '${trips.length}'),
+                child: StatTile(label: AppStrings.statTrips, value: '${trips.length}'),
               ),
               const SizedBox(width: AppSpace.sm),
               Expanded(
-                child: StatTile(label: 'Active', value: '${activeTrips.length}'),
+                child: StatTile(label: AppStrings.statActive, value: '${activeTrips.length}'),
               ),
               const SizedBox(width: AppSpace.sm),
               Expanded(
-                child: StatTile(label: 'Dest.', value: '$destinationCount'),
+                child: StatTile(label: AppStrings.statDestinations, value: '$destinationCount'),
               ),
             ],
           ),
           const SizedBox(height: AppSpace.lg),
-          const SectionHeader(label: 'Trip History'),
+          const SectionHeader(label: AppStrings.tripHistory),
           if (endedTrips.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
               child: Text(
-                'No past trips yet.',
+                AppStrings.noPastTrips,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             )
@@ -79,15 +81,15 @@ class ProfileScreen extends ConsumerWidget {
                   subtitle: trip.startedAt == null
                       ? ''
                       : DateFormat('MMM d, yyyy').format(trip.startedAt!),
-                  onTap: () => context.push('/trip/${trip.id}/map/$userId'),
+                  onTap: () => context.push(AppRoutes.tripMap(tripId: trip.id, userId: userId)),
                 ),
               ),
             ),
           const SizedBox(height: AppSpace.lg),
-          const SectionHeader(label: 'Account'),
+          const SectionHeader(label: AppStrings.account),
           SettingRow(
             icon: Icons.dark_mode_outlined,
-            label: 'Dark mode',
+            label: AppStrings.darkMode,
             trailing: Switch(
               value: isDark,
               onChanged: (value) => ref
@@ -98,7 +100,7 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: AppSpace.sm),
           SettingRow(
             icon: Icons.logout,
-            label: 'Log out',
+            label: AppStrings.logOut,
             isDestructive: true,
             onTap: () => ref.read(authTokenProvider.notifier).clearToken(),
           ),
@@ -189,7 +191,7 @@ class _IdentityFallback extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpace.md),
-        Expanded(child: Text('Guest', style: textTheme.headlineSmall)),
+        Expanded(child: Text(AppStrings.guest, style: textTheme.headlineSmall)),
       ],
     );
   }

@@ -2,7 +2,9 @@ import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'authTokenProvider.dart';
+import '../constants/appRoutes.dart';
+import '../constants/appStrings.dart';
+import '../network/authTokenProvider.dart';
 import '../widgets/app_scaffold_shell.dart';
 import '../../features/tracking/screens/tripMapScreen.dart';
 import '../../features/auth/screens/loginScreen.dart';
@@ -32,42 +34,43 @@ CustomTransitionPage<void> _transitionPage(GoRouterState state, Widget child) {
 final routerProvider = Provider<GoRouter>((ref) {
   // Create a ValueNotifier to act as the refreshListenable for GoRouter
   final listenable = ValueNotifier<String?>(ref.read(authTokenProvider));
-  
+
   // Listen to token changes to notify GoRouter of updates.
   // Using ref.listen avoids rebuilding routerProvider itself, keeping GoRouter instance stable.
   ref.listen<String?>(authTokenProvider, (previous, next) {
     listenable.value = next;
   });
-  
+
   // Dispose the ValueNotifier when the provider is destroyed
   ref.onDispose(() {
     listenable.dispose();
   });
 
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: AppRoutes.login,
     refreshListenable: listenable,
     redirect: (BuildContext context, GoRouterState state) {
       final isAuthenticated = ref.read(authTokenProvider) != null;
-      final loggingIn = state.matchedLocation == '/login' || state.matchedLocation == '/signup';
+      final loggingIn = state.matchedLocation == AppRoutes.login ||
+          state.matchedLocation == AppRoutes.signup;
 
       if (!isAuthenticated) {
-        return loggingIn ? null : '/login';
+        return loggingIn ? null : AppRoutes.login;
       }
 
       if (loggingIn) {
-        return '/trips';
+        return AppRoutes.trips;
       }
 
       return null;
     },
     routes: [
       GoRoute(
-        path: '/login',
+        path: AppRoutes.login,
         pageBuilder: (context, state) => _transitionPage(state, const LoginScreen()),
       ),
       GoRoute(
-        path: '/signup',
+        path: AppRoutes.signup,
         pageBuilder: (context, state) => _transitionPage(state, const SignupScreen()),
       ),
       StatefulShellRoute.indexedStack(
@@ -75,23 +78,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             AppScaffoldShell(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(routes: [
-            GoRoute(path: '/trips', builder: (context, state) => const TripsScreen()),
+            GoRoute(path: AppRoutes.trips, builder: (context, state) => const TripsScreen()),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
+            GoRoute(path: AppRoutes.profile, builder: (context, state) => const ProfileScreen()),
           ]),
         ],
       ),
       GoRoute(
-        path: '/create-trip',
+        path: AppRoutes.createTrip,
         pageBuilder: (context, state) => _transitionPage(state, const CreateTripScreen()),
       ),
       GoRoute(
-        path: '/trip/:tripId/map/:userId',
+        path: AppRoutes.tripMapPattern,
         pageBuilder: (context, state) {
           final tripId = state.pathParameters['tripId']!;
           final userId = state.pathParameters['userId']!;
-          final tripTitle = (state.extra as String?) ?? 'Live trip';
+          final tripTitle = (state.extra as String?) ?? AppStrings.liveTripFallback;
           return _transitionPage(
             state,
             TripMapScreen(

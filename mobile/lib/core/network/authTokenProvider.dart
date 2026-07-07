@@ -2,15 +2,16 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/appConstants.dart';
 
 class AuthTokenNotifier extends StateNotifier<String?> {
   // ignore: use_super_parameters
   AuthTokenNotifier(String? initialToken) : super(initialToken);
 
-  static const tokenKey = 'jwt_token';
+  static const tokenKey = AppConstants.jwtTokenKey;
   // Persisted current-user cache key (owned here so logout can clear it without
   // a circular import back to the user provider).
-  static const currentUserPrefsKey = 'current_user';
+  static const currentUserPrefsKey = AppConstants.currentUserKey;
 
   Future<void> setToken(String token) async {
     try {

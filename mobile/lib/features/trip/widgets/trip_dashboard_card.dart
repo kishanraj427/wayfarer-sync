@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/constants/appConstants.dart';
+import '../../../core/constants/appStrings.dart';
 import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTheme.dart';
 import '../../../core/theme/appTokens.dart';
@@ -63,18 +65,18 @@ class TripDashboardCard extends StatelessWidget {
                     ),
                     PopupMenuButton<String>(
                       onSelected: (value) {
-                        if (value == 'share') onShare();
-                        if (value == 'end') onEnd();
+                        if (value == AppConstants.menuActionShare) onShare();
+                        if (value == AppConstants.menuActionEnd) onEnd();
                       },
                       itemBuilder: (context) => [
                         const PopupMenuItem(
-                          value: 'share',
-                          child: Text('Share'),
+                          value: AppConstants.menuActionShare,
+                          child: Text(AppStrings.share),
                         ),
                         if (trip.isActive)
                           const PopupMenuItem(
-                            value: 'end',
-                            child: Text('End trip'),
+                            value: AppConstants.menuActionEnd,
+                            child: Text(AppStrings.endTrip),
                           ),
                       ],
                     ),
@@ -117,9 +119,7 @@ class TripDashboardCard extends StatelessWidget {
                               ),
                               const SizedBox(width: AppSpace.sm),
                               Text(
-                                trip.memberCount == 1
-                                    ? '1 member'
-                                    : '${trip.memberCount} members',
+                                AppStrings.memberCount(trip.memberCount),
                                 style: textTheme.bodyMedium,
                               ),
                             ],

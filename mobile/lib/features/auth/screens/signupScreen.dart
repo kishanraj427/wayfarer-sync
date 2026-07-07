@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/appRoutes.dart';
+import '../../../core/constants/appStrings.dart';
 import '../../../core/network/apiUrl.dart';
 import '../../../core/network/apiClient.dart';
 import '../../../core/network/authTokenProvider.dart';
@@ -34,11 +36,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     // Basic client-side validation
     if (_firstNameController.text.trim().isEmpty || _lastNameController.text.trim().isEmpty ||
         _emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
-      setState(() => _errorMessage = 'All fields are required.');
+      setState(() => _errorMessage = AppStrings.allFieldsRequired);
       return;
     }
     if (_passwordController.text != _confirmController.text) {
-      setState(() => _errorMessage = "Passwords don't match.");
+      setState(() => _errorMessage = AppStrings.passwordsDontMatch);
       return;
     }
 
@@ -102,13 +104,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Create your account',
+                    AppStrings.createAccountTitle,
                     style: textTheme.displaySmall,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppSpace.sm),
                   Text(
-                    'Start a trip and bring your people along.',
+                    AppStrings.signupTagline,
                     style: textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
@@ -122,7 +124,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           TextField(
                             controller: _firstNameController,
                             enabled: !_isLoading,
-                            decoration: const InputDecoration(labelText: 'First name'),
+                            decoration: const InputDecoration(labelText: AppStrings.firstNameLabel),
                             textCapitalization: TextCapitalization.words,
                             inputFormatters: inputRules(),
                           ),
@@ -130,7 +132,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           TextField(
                             controller: _lastNameController,
                             enabled: !_isLoading,
-                            decoration: const InputDecoration(labelText: 'Last name'),
+                            decoration: const InputDecoration(labelText: AppStrings.lastNameLabel),
                             textCapitalization: TextCapitalization.words,
                             inputFormatters: inputRules(),
                           ),
@@ -138,7 +140,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           TextField(
                             controller: _emailController,
                             enabled: !_isLoading,
-                            decoration: const InputDecoration(labelText: 'Email address'),
+                            decoration: const InputDecoration(labelText: AppStrings.emailLabel),
                             keyboardType: TextInputType.emailAddress,
                             inputFormatters: inputRules(),
                           ),
@@ -149,14 +151,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             obscureText: _obscurePassword,
                             inputFormatters: inputRules(),
                             decoration: InputDecoration(
-                              labelText: 'Password',
+                              labelText: AppStrings.passwordLabel,
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _obscurePassword
                                       ? Icons.visibility_off_outlined
                                       : Icons.visibility_outlined,
                                 ),
-                                tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                                tooltip: _obscurePassword ? AppStrings.showPassword : AppStrings.hidePassword,
                                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                               ),
                             ),
@@ -168,14 +170,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             obscureText: _obscureConfirm,
                             inputFormatters: inputRules(),
                             decoration: InputDecoration(
-                              labelText: 'Confirm password',
+                              labelText: AppStrings.confirmPasswordLabel,
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _obscureConfirm
                                       ? Icons.visibility_off_outlined
                                       : Icons.visibility_outlined,
                                 ),
-                                tooltip: _obscureConfirm ? 'Show password' : 'Hide password',
+                                tooltip: _obscureConfirm ? AppStrings.showPassword : AppStrings.hidePassword,
                                 onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
                               ),
                             ),
@@ -186,14 +188,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           ],
                           const SizedBox(height: AppSpace.lg),
                           PrimaryButton(
-                            label: 'Sign up',
+                            label: AppStrings.signupButton,
                             loading: _isLoading,
                             onPressed: _isLoading ? null : _signup,
                           ),
                           const SizedBox(height: AppSpace.sm),
                           TextButton(
-                            onPressed: _isLoading ? null : () => context.go('/login'),
-                            child: const Text('Already have an account? Log in'),
+                            onPressed: _isLoading ? null : () => context.go(AppRoutes.login),
+                            child: const Text(AppStrings.haveAccountPrompt),
                           ),
                         ],
                       ),

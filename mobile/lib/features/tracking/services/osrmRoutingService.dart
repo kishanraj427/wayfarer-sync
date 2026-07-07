@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import '../../../core/constants/appConstants.dart';
 
 /// Fetches and caches road-based OSRM routes from each member's live
 /// position to the trip destination.
@@ -11,8 +12,7 @@ import 'package:latlong2/latlong.dart';
 /// provider below) and calls [fetchRoutesToDestination] whenever it
 /// detects that member positions have changed.
 class OsrmRoutingService {
-  static const String _osrmBase =
-      'https://router.project-osrm.org/route/v1/driving/';
+  static const String _osrmBase = AppConstants.osrmDrivingBaseUrl;
 
   // ── Internal state ──────────────────────────────────────────────────────
 
@@ -98,7 +98,7 @@ class OsrmRoutingService {
         '?overview=full&geometries=polyline',
       );
 
-      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+      final response = await http.get(uri).timeout(AppConstants.osrmRequestTimeout);
 
       if (response.statusCode != 200) return null;
 

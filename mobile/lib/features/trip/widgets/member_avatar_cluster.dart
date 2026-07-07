@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/constants/appStrings.dart';
 import '../../../core/theme/appTheme.dart';
 import '../../../core/theme/appTokens.dart';
 
@@ -43,7 +44,7 @@ class MemberAvatarCluster extends StatelessWidget {
           ),
         ),
         if (clusterWidth > 0) const SizedBox(width: AppSpace.sm),
-        Text('$total travelers', style: monoData(context, size: 12)),
+        Text(AppStrings.travelersCount(total), style: monoData(context, size: 12)),
       ],
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/appConstants.dart';
 
 /// Persisted app theme mode. Default is light; a future release can switch the
 /// default or expose a settings toggle by calling [ThemeModeNotifier.setMode]
@@ -8,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
   ThemeModeNotifier(super.initialMode);
 
-  static const prefsKey = 'theme_mode';
+  static const prefsKey = AppConstants.themeModeKey;
 
   Future<void> setMode(ThemeMode mode) async {
     state = mode;

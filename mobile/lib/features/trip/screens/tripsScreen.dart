@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/appRoutes.dart';
+import '../../../core/constants/appStrings.dart';
 import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTokens.dart';
@@ -47,12 +49,12 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
                 autofocus: true,
                 inputFormatters: inputRules(),
                 decoration: const InputDecoration(
-                  hintText: 'Search trips',
+                  hintText: AppStrings.searchTrips,
                   border: InputBorder.none,
                 ),
                 onChanged: (value) => setState(() => _query = value),
               )
-            : const Text('My trips'),
+            : const Text(AppStrings.myTrips),
         actions: [
           IconButton(
             icon: Icon(_searching ? Icons.close : Icons.search),
@@ -85,7 +87,7 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
                           false))
                   .toList();
           if (active.isEmpty) {
-            return _EmptyView(onCreate: () => context.push('/create-trip'));
+            return _EmptyView(onCreate: () => context.push(AppRoutes.createTrip));
           }
           if (visible.isEmpty) {
             return _NoMatchView(query: _query);
@@ -100,15 +102,15 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
           FloatingActionButton(
             heroTag: 'join',
             onPressed: () => _showJoinDialog(context, ref, userId),
-            tooltip: 'Join trip',
+            tooltip: AppStrings.joinTripTooltip,
             child: const Icon(Icons.group_add),
           ),
           const SizedBox(height: AppSpace.md),
           FloatingActionButton.extended(
             heroTag: 'create',
-            onPressed: () => context.push('/create-trip'),
+            onPressed: () => context.push(AppRoutes.createTrip),
             icon: const Icon(Icons.add),
-            label: const Text('New trip'),
+            label: const Text(AppStrings.newTrip),
           ),
         ],
       ),
@@ -131,15 +133,15 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
       final result = await ref.read(tripsProvider.notifier).join(tripId);
       if (!context.mounted) return;
       if (result.alreadyMember) {
-        context.push('/trip/$tripId/map/$userId');
+        context.push(AppRoutes.tripMap(tripId: tripId, userId: userId));
       } else {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Joined trip. Open it to start tracking.')),
+          const SnackBar(content: Text(AppStrings.joinedTripSuccess)),
         );
       }
     } catch (error) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Failed to join trip: $error')),
+        SnackBar(content: Text(AppStrings.failedToJoinTrip(error))),
       );
     }
   }
@@ -171,14 +173,14 @@ class _Dashboard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: StatTile(label: 'Active', value: '${trips.length}')),
+              Expanded(child: StatTile(label: AppStrings.statActive, value: '${trips.length}')),
               const SizedBox(width: AppSpace.sm),
-              Expanded(child: StatTile(label: 'Travelers', value: '$travelers')),
+              Expanded(child: StatTile(label: AppStrings.statTravelers, value: '$travelers')),
               const SizedBox(width: AppSpace.sm),
-              Expanded(child: StatTile(label: 'Dest.', value: '$destinations')),
+              Expanded(child: StatTile(label: AppStrings.statDestinations, value: '$destinations')),
             ],
           ),
-          const SectionHeader(label: 'Active Trips'),
+          const SectionHeader(label: AppStrings.activeTripsHeader),
           ...visible.map((trip) => _cardFor(context, trip)),
         ],
       ),
@@ -191,7 +193,7 @@ class _Dashboard extends StatelessWidget {
       child: TripDashboardCard(
         trip: trip,
         onOpen: () => context.push(
-          '/trip/${trip.id}/map/$userId',
+          AppRoutes.tripMap(tripId: trip.id, userId: userId),
           extra: trip.title,
         ),
         onShare: () => shareTrip(tripId: trip.id, title: trip.title),
@@ -205,16 +207,16 @@ class _Dashboard extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('End this trip?'),
-        content: const Text('Live tracking will stop for everyone.'),
+        title: const Text(AppStrings.endTripDialogTitle),
+        content: const Text(AppStrings.endTripDialogBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: const Text(AppStrings.cancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('End trip'),
+            child: const Text(AppStrings.endTrip),
           ),
         ],
       ),
@@ -222,9 +224,9 @@ class _Dashboard extends StatelessWidget {
     if (confirmed != true) return;
     try {
       await ref.read(tripsProvider.notifier).endTrip(trip.id);
-      messenger.showSnackBar(const SnackBar(content: Text('Trip ended.')));
+      messenger.showSnackBar(const SnackBar(content: Text(AppStrings.tripEnded)));
     } catch (error) {
-      messenger.showSnackBar(SnackBar(content: Text('Failed to end trip: $error')));
+      messenger.showSnackBar(SnackBar(content: Text(AppStrings.failedToEndTrip(error))));
     }
   }
 }
@@ -257,7 +259,7 @@ class _ErrorView extends StatelessWidget {
           children: [
             InlineErrorBanner(message: message),
             const SizedBox(height: AppSpace.md),
-            PrimaryButton(label: 'Retry', icon: Icons.refresh, onPressed: onRetry),
+            PrimaryButton(label: AppStrings.retry, icon: Icons.refresh, onPressed: onRetry),
           ],
         ),
       ),
@@ -281,15 +283,15 @@ class _EmptyView extends StatelessWidget {
             children: [
               Icon(Icons.map_outlined, size: 48, color: context.semantic.route),
               const SizedBox(height: AppSpace.md),
-              Text('No trips yet', style: textTheme.headlineSmall),
+              Text(AppStrings.noTripsYet, style: textTheme.headlineSmall),
               const SizedBox(height: AppSpace.sm),
               Text(
-                'Start a trip and share the ID so your people can join.',
+                AppStrings.emptyTripsPrompt,
                 style: textTheme.bodyMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpace.lg),
-              PrimaryButton(label: 'Start a trip', icon: Icons.add, onPressed: onCreate),
+              PrimaryButton(label: AppStrings.startATrip, icon: Icons.add, onPressed: onCreate),
             ],
           ),
         ),
@@ -314,7 +316,7 @@ class _NoMatchView extends StatelessWidget {
             Icon(Icons.search_off, size: 48, color: context.semantic.route),
             const SizedBox(height: AppSpace.md),
             Text(
-              "No trips match '$query'.",
+              AppStrings.noTripsMatch(query),
               style: textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
@@ -354,10 +356,10 @@ class _JoinTripDialogState extends State<_JoinTripDialog> {
             child: Icon(Icons.group_add, color: context.semantic.onRoute),
           ),
           const SizedBox(height: AppSpace.md),
-          Text('Join a Trip', style: Theme.of(context).textTheme.titleLarge),
+          Text(AppStrings.joinTripTitle, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppSpace.xs),
           Text(
-            'Enter the Trip ID your group leader shared.',
+            AppStrings.joinTripPrompt,
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
@@ -366,7 +368,7 @@ class _JoinTripDialogState extends State<_JoinTripDialog> {
             controller: _controller,
             inputFormatters: inputRules(),
             decoration: const InputDecoration(
-              labelText: 'Trip ID',
+              labelText: AppStrings.tripIdLabel,
               prefixIcon: Icon(Icons.key),
             ),
           ),
@@ -375,7 +377,7 @@ class _JoinTripDialogState extends State<_JoinTripDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text(AppStrings.cancel),
         ),
         ElevatedButton(
           onPressed: () {
@@ -385,7 +387,7 @@ class _JoinTripDialogState extends State<_JoinTripDialog> {
               widget.onJoin(tripId);
             }
           },
-          child: const Text('Join'),
+          child: const Text(AppStrings.join),
         ),
       ],
     );

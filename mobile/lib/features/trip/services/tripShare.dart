@@ -1,11 +1,11 @@
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/constants/appStrings.dart';
+
 /// Builds the human-readable message shared/copied to invite others to a trip.
 String buildTripShareText({required String tripId, required String title}) {
-  return 'Join my trip "$title" on Wire!\n'
-      'Trip ID: $tripId\n'
-      'Open the app, tap Join Trip, and paste this ID.';
+  return AppStrings.tripShareMessage(title: title, tripId: tripId);
 }
 
 /// Opens the OS share sheet with the trip invite text.

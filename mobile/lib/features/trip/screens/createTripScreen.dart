@@ -7,6 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
+import '../../../core/constants/appConstants.dart';
+import '../../../core/constants/appRoutes.dart';
+import '../../../core/constants/appStrings.dart';
 import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTheme.dart';
@@ -54,7 +57,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       return;
     }
     _debounceTimer = Timer(
-      const Duration(milliseconds: 500),
+      AppConstants.searchDebounce,
       () => _searchPlaces(query),
     );
   }
@@ -63,7 +66,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     setState(() => _isSearching = true);
     try {
       final url = Uri.parse(
-        'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(query)}&format=json&limit=5',
+        '${AppConstants.nominatimBaseUrl}/search?q=${Uri.encodeComponent(query)}&format=json&limit=${AppConstants.nominatimSearchLimit}',
       );
       final response = await http.get(
         url,
@@ -85,7 +88,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   Future<void> _reverseGeocode(LatLng point) async {
     try {
       final url = Uri.parse(
-        'https://nominatim.openstreetmap.org/reverse?lat=${point.latitude}&lon=${point.longitude}&format=json',
+        '${AppConstants.nominatimBaseUrl}/reverse?lat=${point.latitude}&lon=${point.longitude}&format=json',
       );
       final response = await http.get(
         url,
@@ -127,7 +130,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           permission == LocationPermission.deniedForever) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Location permission is required.')),
+            const SnackBar(content: Text(AppStrings.locationPermissionRequired)),
           );
         }
         return;
@@ -154,7 +157,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not get location: $e')));
+        ).showSnackBar(SnackBar(content: Text(AppStrings.couldNotGetLocation(e))));
       }
     } finally {
       if (mounted) setState(() => _isLocating = false);
@@ -174,14 +177,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   Future<void> _startTrip() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a trip name.')),
+        const SnackBar(content: Text(AppStrings.enterTripName)),
       );
       return;
     }
     if (_selectedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select or pin a destination location.'),
+          content: Text(AppStrings.selectDestination),
         ),
       );
       return;
@@ -196,7 +199,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             startedAt: DateTime.now(),
             destinations: [
               {
-                'name': _selectedLocationName ?? 'Destination',
+                'name': _selectedLocationName ?? AppStrings.destinationFallback,
                 'latitude': _selectedLocation!.latitude,
                 'longitude': _selectedLocation!.longitude,
                 'order': 0,
@@ -211,7 +214,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to start trip: $e')));
+        ).showSnackBar(SnackBar(content: Text(AppStrings.failedToStartTrip(e))));
       }
     } finally {
       if (mounted) {
@@ -235,9 +238,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               color: context.semantic.signalOnline,
             ),
             const SizedBox(height: AppSpace.md),
-            Text('Trip created', style: Theme.of(context).textTheme.titleLarge),
+            Text(AppStrings.tripCreatedTitle, style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: AppSpace.xs),
-            const Text('Share this Trip ID so friends can join:'),
+            const Text(AppStrings.shareTripIdPrompt),
             const SizedBox(height: AppSpace.sm),
             SelectableText(
               tripId,
@@ -248,27 +251,27 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         actions: [
           TextButton.icon(
             icon: const Icon(Icons.copy),
-            label: const Text('Copy'),
+            label: const Text(AppStrings.copy),
             onPressed: () async {
               await copyTripId(tripId);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Trip ID copied to clipboard.')),
+                  const SnackBar(content: Text(AppStrings.tripIdCopied)),
                 );
               }
             },
           ),
           TextButton.icon(
             icon: const Icon(Icons.share),
-            label: const Text('Share'),
+            label: const Text(AppStrings.share),
             onPressed: () => shareTrip(tripId: tripId, title: tripTitle),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.of(dialogContext).pop();
-              context.pushReplacement('/trip/$tripId/map/$userId');
+              context.pushReplacement(AppRoutes.tripMap(tripId: tripId, userId: userId));
             },
-            child: const Text('Open Live Map'),
+            child: const Text(AppStrings.openLiveMap),
           ),
         ],
       ),
@@ -278,7 +281,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Start new trip')),
+      appBar: AppBar(title: const Text(AppStrings.startNewTrip)),
       body: Stack(
         children: [
           FlutterMap(
@@ -288,7 +291,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                 20.5937,
                 78.9629,
               ), // Default center on India
-              initialZoom: 5.0,
+              initialZoom: AppConstants.createTripInitialZoom,
               onTap: (tapPosition, point) {
                 setState(() {
                   _selectedLocation = point;
@@ -300,7 +303,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: AppConstants.osmTileUrlTemplate,
                 userAgentPackageName: 'com.wayfarersync.mobile',
               ),
               if (_selectedLocation != null)
@@ -336,7 +339,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       inputFormatters: inputRules(),
                       textCapitalization: TextCapitalization.sentences,
                       decoration: const InputDecoration(
-                        labelText: 'Trip name',
+                        labelText: AppStrings.tripNameLabel,
                         prefixIcon: Icon(Icons.edit_outlined),
                       ),
                     ),
@@ -347,7 +350,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       inputFormatters: inputRules(),
                       textCapitalization: TextCapitalization.sentences,
                       decoration: InputDecoration(
-                        labelText: 'Search destination',
+                        labelText: AppStrings.searchDestinationLabel,
                         prefixIcon: const Icon(Icons.search),
                         suffixIcon: _isSearching
                             ? const Padding(
@@ -441,7 +444,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                             )
                           : IconButton(
                               icon: const Icon(Icons.my_location),
-                              tooltip: 'Locate me',
+                              tooltip: AppStrings.locateMeTooltip,
                               onPressed: _locateMe,
                             ),
                     ),
@@ -456,7 +459,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       ),
                     ),
                     child: PrimaryButton(
-                      label: 'Start trip',
+                      label: AppStrings.startTripButton,
                       icon: Icons.flag_outlined,
                       loading: _isSaving,
                       onPressed: (_isSaving || _selectedLocation == null)

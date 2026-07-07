@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/appStrings.dart';
 import '../theme/appSemanticColors.dart';
 import '../theme/appTheme.dart';
 import '../theme/appTokens.dart';
@@ -72,7 +73,7 @@ class TripTicketCard extends StatelessWidget {
               const SizedBox(width: AppSpace.sm),
               IconButton(
                 icon: const Icon(Icons.share_outlined),
-                tooltip: 'Share trip',
+                tooltip: AppStrings.shareTripTooltip,
                 onPressed: onShare,
               ),
             ],

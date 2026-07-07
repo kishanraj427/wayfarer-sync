@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/constants/appConstants.dart';
 import '../../../core/storage/localDatabase.dart';
 import '../../../core/storage/storageProviders.dart';
 import 'locationPermissionHandler.dart';
@@ -29,7 +30,7 @@ class LocationTrackingService {
     // 2. Configure hardware sensor tracking criteria
     const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high, // Use high accuracy for real-time tracking
-      distanceFilter: 10,              // Trigger an update only after moving 10 meters
+      distanceFilter: AppConstants.locationDistanceFilterMeters,              // Trigger an update only after moving 10 meters
     );
 
     // 3. Open the continuous hardware position wire

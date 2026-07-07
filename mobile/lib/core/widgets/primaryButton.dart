@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/appConstants.dart';
 import '../theme/appTokens.dart';
 
 /// Full-width primary action with a subtle press-scale, inline loading state,
@@ -40,7 +41,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       onTapCancel: () => _setPressed(false),
       child: AnimatedScale(
         scale: _scale,
-        duration: const Duration(milliseconds: 90),
+        duration: AppConstants.buttonPressAnimation,
         child: SizedBox(
           width: double.infinity,
           child: ElevatedButton(

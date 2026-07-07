@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../constants/appStrings.dart';
 import '../theme/appSemanticColors.dart';
 
 class AppScaffoldShell extends StatelessWidget {
@@ -21,12 +22,12 @@ class AppScaffoldShell extends StatelessWidget {
           NavigationDestination(
             icon: Icon(Icons.flight_takeoff_outlined),
             selectedIcon: Icon(Icons.flight_takeoff),
-            label: 'Trips',
+            label: AppStrings.navTrips,
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
-            label: 'Profile',
+            label: AppStrings.navProfile,
           ),
         ],
       ),
