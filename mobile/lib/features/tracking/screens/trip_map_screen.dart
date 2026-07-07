@@ -488,15 +488,20 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                     .toList(),
               ),
               // ── GPS breadcrumb trails (movement history) ──────────────
+              // Each trail is split into segments so a stale/out-of-order fix
+              // never draws a straight "teleport" line across the map.
               PolylineLayer(
                 polylines: liveMarkerMap.trails.entries
-                    .where((entry) => entry.value.length >= 2)
-                    .map(
-                      (entry) => Polyline(
-                        points: entry.value,
-                        color: _trailColorForUser(entry.key),
-                        strokeWidth: 4.0,
-                      ),
+                    .expand(
+                      (entry) => listTrailSegments(entry.value)
+                          .where((segment) => segment.length >= 2)
+                          .map(
+                            (segment) => Polyline(
+                              points: segment,
+                              color: _trailColorForUser(entry.key),
+                              strokeWidth: 4.0,
+                            ),
+                          ),
                     )
                     .toList(),
               ),

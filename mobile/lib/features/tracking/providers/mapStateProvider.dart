@@ -5,6 +5,33 @@ import '../../../core/constants/appConstants.dart';
 /// Maximum number of coordinates retained per user trail to bound memory.
 const int maxTrailPoints = AppConstants.maxTrailPoints;
 
+/// Splits a trail into continuous segments, starting a new segment wherever two
+/// consecutive points are farther than [AppConstants.maxTrailSegmentMeters]
+/// apart. This stops a stale or out-of-order fix (e.g. a leftover emulator
+/// location in another country) from being drawn as a straight "teleport" line
+/// across the map; such an outlier ends up in its own tiny segment that is
+/// dropped by the caller's minimum-length check.
+List<List<LatLng>> listTrailSegments(List<LatLng> trail) {
+  if (trail.length < 2) return [trail];
+
+  const distance = Distance();
+  final segmentList = <List<LatLng>>[];
+  var currentSegment = <LatLng>[trail.first];
+
+  for (var index = 1; index < trail.length; index++) {
+    final previousPoint = trail[index - 1];
+    final point = trail[index];
+    if (distance(previousPoint, point) > AppConstants.maxTrailSegmentMeters) {
+      segmentList.add(currentSegment);
+      currentSegment = <LatLng>[point];
+    } else {
+      currentSegment.add(point);
+    }
+  }
+  segmentList.add(currentSegment);
+  return segmentList;
+}
+
 /// Latest coordinate per user (for markers/centering) plus an ordered
 /// coordinate history per user (for polylines).
 class UserLiveMarkerState {
