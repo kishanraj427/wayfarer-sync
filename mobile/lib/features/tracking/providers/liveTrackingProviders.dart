@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:wayfarer_sync_mobile/features/tracking/models/realtimeEvent.dart';
 import 'package:wayfarer_sync_mobile/features/tracking/services/trackingSocketService.dart';
@@ -16,6 +17,9 @@ final liveLocationStreamProvider = StreamProvider.autoDispose.family<MemberLocat
 
   // Yield filtered location objects down to the UI map layer
   await for (final message in socketService.messagesStream) {
+    debugPrint(
+      '[WS] recv: ${message is Map ? message['type'] : message.runtimeType}',
+    );
     if (message is Map<String, dynamic> && message['type'] == 'member_location') {
       final payload = message['payload'] as Map<String, dynamic>;
       yield MemberLocationUpdate.fromJson(payload);
