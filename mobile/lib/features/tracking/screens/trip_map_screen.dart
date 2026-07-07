@@ -21,6 +21,7 @@ import '../../trip/services/tripShare.dart';
 import '../providers/connectivityProvider.dart';
 import '../providers/liveTrackingProviders.dart';
 import '../providers/mapStateProvider.dart';
+import '../repositories/pathRepository.dart';
 import '../services/locationTrackingService.dart';
 import '../services/osrmRoutingService.dart';
 import '../services/syncService.dart';
@@ -57,6 +58,13 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
   // Rendered route lines, updated by the service after each fetch.
   Map<String, List<LatLng>> _routesToDestination = {};
 
+  // Durable subscription to other members' live location frames. Registered
+  // via listenManual (not ref.listen, which only works inside build) so the
+  // underlying autoDispose stream provider stays alive and the socket keeps
+  // draining while this screen is open. Closed in dispose().
+  ProviderSubscription<AsyncValue<MemberLocationUpdate>>?
+  _liveLocationSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -67,25 +75,35 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
       _routingService = ref.read(osrmRoutingServiceProvider);
       _trackingService.startTracking(widget.tripId, widget.currentUserId);
       _fetchTripDetails();
+      _loadHistoricalPaths();
 
-      // Register the live-location listener exactly once, here in
-      // initState, instead of inside build() where it would be
-      // re-registered on every rebuild, causing _dependents.isEmpty
-      // assertion failures and duplicate GlobalKey errors.
-      ref.listen<AsyncValue<MemberLocationUpdate>>(
-        liveLocationStreamProvider(widget.tripId),
-        (previous, next) {
-          if (next is AsyncData<MemberLocationUpdate>) {
-            final update = next.value;
-            ref
-                .read(mapStateProvider.notifier)
-                .updateMemberPosition(
-                  update.userId,
-                  LatLng(update.latitude, update.longitude),
-                );
-          }
-        },
-      );
+      // Subscribe to other members' live locations for the lifetime of this
+      // screen. listenManual — not ref.listen, which only works during build —
+      // returns a durable subscription (closed in dispose) and keeps the
+      // autoDispose stream provider, and therefore the socket, alive. This is
+      // the only path that feeds remote members into the map, so if it fails to
+      // subscribe no one but yourself ever appears.
+      _liveLocationSubscription =
+          ref.listenManual<AsyncValue<MemberLocationUpdate>>(
+            liveLocationStreamProvider(widget.tripId),
+            (previous, next) {
+              // AsyncValue.value is nullable in Riverpod 3: null while loading
+              // or on error, the data otherwise.
+              final update = next.value;
+              if (update == null) return;
+              ref
+                  .read(mapStateProvider.notifier)
+                  .updateMemberPosition(
+                    update.userId,
+                    LatLng(update.latitude, update.longitude),
+                  );
+            },
+            onError: (error, stackTrace) {
+              // reason: a swallowed socket/parse error previously hid that
+              // remote updates had stopped arriving — surface it instead.
+              debugPrint('Live location stream error: $error');
+            },
+          );
     });
   }
 
@@ -107,6 +125,22 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
       if (mounted) {
         setState(() => _isLoadingDetails = false);
       }
+    }
+  }
+
+  /// Loads every member's recorded path once on open and seeds the map, so a
+  /// member's earlier movement is visible immediately instead of only after
+  /// they emit a fresh live frame.
+  Future<void> _loadHistoricalPaths() async {
+    try {
+      final pathRepository = ref.read(pathRepositoryProvider);
+      final historyByUser = await pathRepository.getTripPaths(widget.tripId);
+      if (!mounted) return;
+      ref.read(mapStateProvider.notifier).hydrateHistory(historyByUser);
+    } catch (error) {
+      // reason: history is a best-effort enhancement; live tracking still works
+      // without it, so a fetch failure must not break opening the map.
+      debugPrint('Failed to load historical paths: $error');
     }
   }
 
@@ -135,6 +169,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
   @override
   void dispose() {
     // Use the pre-saved service reference — never call ref.read() here.
+    _liveLocationSubscription?.close();
     _trackingService.stopTracking();
     _mapController.dispose();
     super.dispose();
@@ -258,6 +293,16 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
   @override
   Widget build(BuildContext context) {
     final liveMarkerMap = ref.watch(mapStateProvider);
+
+    // Top bar shows only live members: the current user (always live while
+    // viewing their own map) plus anyone we're currently receiving locations
+    // for. A member in the roster who has never shared a location is omitted.
+    final liveMembers = _members.where((member) {
+      final userId = member['userId'] as String?;
+      if (userId == null) return false;
+      return userId == widget.currentUserId ||
+          liveMarkerMap.positions.containsKey(userId);
+    }).toList();
 
     // Display-only: drives the "Syncing…" indicator dot in the bottom info
     // panel. Reuses the existing app-wide connectivity stream; does not
@@ -509,7 +554,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                       }),
 
                       // ── Divider between destinations and members ──────────
-                      if (_destinations.isNotEmpty && _members.isNotEmpty)
+                      if (_destinations.isNotEmpty && liveMembers.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpace.sm,
@@ -522,8 +567,8 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                           ),
                         ),
 
-                      // ── Member chips ──────────────────────────────────────
-                      ..._members.map((member) {
+                      // ── Member chips (live members only) ──────────────────
+                      ...liveMembers.map((member) {
                         final userId = member['userId'] as String;
                         final userEmail =
                             member['user']?['email'] as String? ?? AppStrings.memberFallback;

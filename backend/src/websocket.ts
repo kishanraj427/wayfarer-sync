@@ -129,7 +129,7 @@ export const initWebSocketServer = (server: HttpServer): void => {
 
     // Remove connection entries gracefully when sockets close or disconnect
     ws.on("close", () => {
-      roomManager.removeUser(tripId, userId);
+      roomManager.removeUser(tripId, userId, ws);
     });
 
     ws.on("error", (err) => {
@@ -137,7 +137,7 @@ export const initWebSocketServer = (server: HttpServer): void => {
         `WebSocket connection runtime fault for user ${userId}:`,
         err,
       );
-      roomManager.removeUser(tripId, userId);
+      roomManager.removeUser(tripId, userId, ws);
     });
   });
 };

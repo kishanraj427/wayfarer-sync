@@ -27,10 +27,18 @@ export const roomManager = {
   /**
    * Clears a user from a room's active tracking collection.
    * Cleanly deletes the parent trip room if no members remain to save memory.
+   *
+   * Only evicts when the closing socket is the one currently registered. On a
+   * rapid reconnect addUser replaces the socket synchronously, but the OLD
+   * socket's close/error handler fires a tick later — without this guard it
+   * would delete the entry now pointing at the NEW socket, silently cutting the
+   * user off from receiving other members' broadcasts.
    */
-  removeUser(tripId: string, userId: string): void {
+  removeUser(tripId: string, userId: string, socket: WebSocket): void {
     const roomMembers = rooms.get(tripId);
     if (!roomMembers) return;
+
+    if (roomMembers.get(userId) !== socket) return;
 
     roomMembers.delete(userId);
 
