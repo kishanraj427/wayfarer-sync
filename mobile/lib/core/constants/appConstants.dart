@@ -47,6 +47,13 @@ class AppConstants {
   /// Cap on retained GPS trail points per member to bound memory.
   static const int maxTrailPoints = 500;
 
+  /// A trail is split into separate polyline segments when two consecutive
+  /// points jump farther than this (meters). Consecutive live points are only
+  /// [locationDistanceFilterMeters] apart, so a gap this large is a teleport —
+  /// a stale/out-of-order fix (e.g. a default emulator location) — and must not
+  /// be drawn as a straight line across the map.
+  static const double maxTrailSegmentMeters = 1000;
+
   // --- Trip overflow-menu action ids ---
   static const String menuActionShare = 'share';
   static const String menuActionEnd = 'end';
