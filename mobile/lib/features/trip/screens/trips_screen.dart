@@ -240,7 +240,7 @@ class _SkeletonList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(AppSpace.md),
       itemCount: 5,
-      separatorBuilder: (_, __) => const SizedBox(height: AppSpace.md),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpace.md),
       itemBuilder: (context, index) =>
           const SkeletonBox(height: 120, radius: AppRadius.md),
     );

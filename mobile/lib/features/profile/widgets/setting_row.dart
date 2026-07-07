@@ -41,7 +41,7 @@ class SettingRow extends StatelessWidget {
                   style: textTheme.titleMedium?.copyWith(color: foreground),
                 ),
               ),
-              if (trailing != null) trailing!,
+              ?trailing,
             ],
           ),
         ),
