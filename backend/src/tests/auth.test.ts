@@ -1,5 +1,10 @@
 import { test, expect, mock, describe, beforeEach } from "bun:test";
 
+// Hermetic env preamble; generateToken() calls the real jsonwebtoken.sign, so a valid secret must exist.
+process.env.DATABASE_URL ??= "postgresql://u:p@localhost:5433/db";
+process.env.JWT_SECRET ??= "test-access-secret";
+process.env.JWT_REFRESH_SECRET ??= "r".repeat(32);
+
 const mockUserFindUnique = mock((_args: any) => Promise.resolve<any>(null));
 const mockUserCreate = mock((_args: any) => Promise.resolve<any>(null));
 
@@ -9,13 +14,13 @@ mock.module("../prisma", () => ({
   },
 }));
 
-// Avoid a real bcrypt hash / jwt secret dependency in the controller path.
+// Avoid a real bcrypt hash dependency in the controller path.
 mock.module("bcryptjs", () => ({
   default: { hash: (value: string) => Promise.resolve(`hashed:${value}`) },
 }));
-mock.module("jsonwebtoken", () => ({
-  default: { sign: () => "test-token" },
-}));
+
+// jsonwebtoken is intentionally NOT mocked: mock.module() leaks across files in Bun and
+// can't be reliably restored, so real jwt.sign is used with the hermetic secret above.
 
 import { signup } from "../controllers/auth.controller";
 

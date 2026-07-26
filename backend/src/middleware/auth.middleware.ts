@@ -1,29 +1,31 @@
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import { verifyAccessToken } from "../services/token.service";
+
+/** The auth scheme prefix expected on the Authorization header. */
+export const BEARER_PREFIX = "Bearer ";
+
+/** Extracts the token from an Authorization header, or null if malformed. */
+export const bearerTokenFrom = (header: string | undefined): string | null =>
+  header?.startsWith(BEARER_PREFIX) ? header.slice(BEARER_PREFIX.length) : null;
 
 export interface AuthRequest extends Request {
   userId?: string;
+  tripMember?: unknown;
 }
 
-export const authenticate = (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-) => {
+export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
   const header = req.headers.authorization;
-  if (!header?.startsWith("Bearer ")) {
-    res.status(401).json({ error: "No token provided" });
+  if (!header?.startsWith(BEARER_PREFIX)) {
+    res.status(401).json({ error: "No token provided", success: false });
     return;
   }
 
-  const token = header.split(" ")[1];
-  try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET!) as {
-      userId: string;
-    };
-    req.userId = payload.userId;
-    next();
-  } catch {
-    res.status(401).json({ error: "Invalid token" });
+  const result = verifyAccessToken(header.slice(BEARER_PREFIX.length));
+  if (!result) {
+    res.status(401).json({ error: "Invalid token", success: false });
+    return;
   }
+
+  req.userId = result.userId;
+  next();
 };

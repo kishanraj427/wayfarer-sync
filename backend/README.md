@@ -67,10 +67,12 @@ Create a `.env` file in the root backend directory:
 ```env
 DATABASE_URL="postgresql://wayfarer:wayfarer123@localhost:5433/wayfarer"
 JWT_SECRET="your_secure_jwt_secret_key"
+JWT_REFRESH_SECRET="a_secret_of_at_least_32_characters"
 REDIS_HOST="localhost"
 REDIS_PORT="6379"
 PORT=3000
 ```
+Validated at boot (`src/config/env.ts`) — the process exits immediately if a variable is missing or invalid. `JWT_REFRESH_SECRET` must be at least 32 characters **and different from `JWT_SECRET`**; the server refuses to boot if they're equal, since identical secrets collapse the access/refresh token separation. `JWT_SECRET` itself has no length requirement — it's the pre-existing production secret, and rotating it would log out every user, so it is deliberately not tightened. See [Authentication & Tokens](#-authentication--tokens).
 
 ### 2. Start the Databases
 Spin up the PostgreSQL and Valkey docker containers:
@@ -123,10 +125,27 @@ All schema definitions under the `prisma/` folder (such as `user.prisma`, `trip.
 *   **`POST /api/auth/login`**
     *   *Payload*: `{ "email": "user@example.com", "password": "securepassword" }`
     *   *Response*: Authorization JWT token.
+*   **`POST /api/auth/refresh`**
+    *   *Payload*: `{ "refreshToken": "<jwt>" }`
+    *   *Response* (`200`): `{ "accessToken": "<jwt>", "refreshToken": "<jwt>", "token": "<jwt>", "success": true }` — issues a fresh token pair (refresh rotates too).
+    *   *Response* (`401`): `{ "error": "Invalid or expired refresh token", "code": "INVALID_REFRESH", "success": false }`. See [the `INVALID_REFRESH` contract](#the-invalid_refresh-contract) below.
+    *   Rate-limited at 20/15min per IP (`refreshLimiter`), not the auth limiter.
+*   **`POST /api/auth/exchange`** [Auth Required]
+    *   One-shot upgrade for a client holding only a legacy `token`/access token and no refresh token (an in-place update from before this feature). Same response shape as `/refresh`.
+*   **`POST /api/auth/ws-ticket`** [Auth Required]
+    *   *Payload*: `{ "tripId": "<uuid>" }`
+    *   *Response*: `{ "ticket": "<jwt>", "success": true }` — a 30-second, single-trip WebSocket credential. See [WebSocket Protocol](#-websocket-protocol).
+    *   Rate-limited at 60/15min per IP (`ticketLimiter`), not the auth limiter.
+*   **`POST /api/auth/logout`**
+    *   *Response*: `{ "success": true }`. Stateless — there is nothing server-side to revoke; the client clears its own tokens.
 
 All auth responses (`signup`, `login`, `me`) return a `user` object that includes `firstName` and `lastName`. These are nullable for legacy accounts created before this field existed.
 
+`signup` and `login` responses also carry `accessToken` (15 min), `refreshToken` (30 days), and `token` — a 7-day legacy alias of the access token kept **only** so the deployed v1.0.4+5 app, which reads `response['token']` with a non-nullable cast, keeps working. Auth response bodies are flat and must **never** gain a top-level `data` key: the mobile `ApiClient` returns `body['data']` when present and the whole body otherwise, so a stray `data` key would silently break every auth parse site.
+
 ### Trips
+`GET/PUT/DELETE /trip/:id`, `POST /trip/:id/end`, `GET /trip/:id/members`, and both `/trip/:id/paths` routes are gated by `requireTripMembership`, which returns **`404`, never `403`**, for a caller who isn't a member — a `403` would confirm the trip exists and permit UUID enumeration, so "doesn't exist" and "not yours" are deliberately indistinguishable. The check looks at `deletedAt` only, not `endedAt`, so an ended-but-not-deleted trip stays readable by its members. `POST /trip/:id/join` is **not** gated by this middleware (a non-member is exactly who is allowed to call it).
+
 *   **`GET /api/trip`** [Auth Required]
     *   *Response*: Returns only the **caller's** trips (trips they are a member of, non-deleted), most-recent first (max 100). Each trip includes its `destinations`, `members` (with `user`), and `_count.members`.
 *   **`POST /api/trip`** [Auth Required]
@@ -202,8 +221,21 @@ sequenceDiagram
 
 ## 📡 WebSocket Protocol
 
-The real-time connection requires authentication during upgrade. Connection parameters must be passed in the connection URL query string:
-`ws://localhost:3000/?token=YOUR_JWT_TOKEN&tripId=YOUR_TRIP_ID`
+The real-time connection requires authentication during upgrade. Connection parameters must be passed in the connection URL query string, in one of two forms:
+
+*   **Ticketed (current)**: `ws://localhost:3000/?ticket=YOUR_WS_TICKET&tripId=YOUR_TRIP_ID` — the ticket comes from `POST /api/auth/ws-ticket` and is bound to that one `tripId`.
+*   **Legacy (still supported)**: `ws://localhost:3000/?token=YOUR_JWT_TOKEN&tripId=YOUR_TRIP_ID` — a plain access token, exactly as v1.0.4+5 sends it.
+
+A ticketed connection is armed with a **15-minute re-auth deadline**. To stay connected past it, the client must send an `auth_refresh` message with a fresh ticket before the deadline; the server replies `auth_ok` and rearms the deadline. A background sweep runs every 60 seconds and closes any socket that missed its deadline with close code **`4001`** (reason `"auth expired"`). A legacy `?token=` connection is **never** given a deadline and is therefore never swept — closing it only happens the normal way (client disconnects, error, etc.).
+
+#### `auth_refresh` (Client → Server)
+```json
+{
+  "type": "auth_refresh",
+  "payload": { "ticket": "YOUR_FRESH_WS_TICKET" }
+}
+```
+On success the server replies `{"type":"auth_ok","payload":{}}` and extends the deadline by another 15 minutes. On failure (bad/expired ticket, ticket for a different user, or the caller is no longer a trip member) the server closes the socket with code `4001`.
 
 ### Outgoing Messages (Client → Server)
 For real-time location streaming, clients should send stringified JSON frames:
@@ -237,6 +269,37 @@ Broadcast events sent from the server to room members:
   }
 }
 ```
+
+---
+
+## 🔑 Authentication & Tokens
+
+Four token kinds are in play, all HS256, with the algorithm explicitly pinned on both sign and verify (no reliance on library defaults):
+
+| Token | TTL | Signed with | Claims |
+| :--- | :--- | :--- | :--- |
+| `accessToken` | 15 min | `JWT_SECRET` | `{ userId, type: 'access' }` |
+| `refreshToken` | 30 days, sliding | `JWT_REFRESH_SECRET` | `{ userId, type: 'refresh' }` |
+| `token` (legacy alias) | 7 days | `JWT_SECRET` | `{ userId, type: 'access' }` |
+| WS ticket | 30 sec | `JWT_SECRET` | `{ userId, tripId, type: 'ws' }` |
+
+The `type` claim exists because WS tickets are signed with the **same secret** as access tokens — a ticket presented as a Bearer token decodes cleanly and is rejected *only* by the `type` check. (Refresh tokens use a different secret, so they'd fail signature verification regardless.) `verifyAccessToken` also accepts **untyped** tokens — those issued before this release, which predate the `type` claim entirely. That shim is scheduled for removal 7 days after deploy, once every pre-deploy token has naturally expired.
+
+### The `INVALID_REFRESH` contract
+
+> **`POST /api/auth/refresh` returning HTTP `401` with body `code: "INVALID_REFRESH"` is the *only* signal that makes the mobile client clear its tokens and show the login screen.** Every other outcome — a `500`, a `404`, a bare `401` without that code, a network error, or an HTML gateway page — leaves the user logged in and is treated as transient. Do not add another way to trigger a client-side logout, and never return this exact `(401, INVALID_REFRESH)` pair for anything other than "this refresh token is genuinely invalid or expired." Changing it is a breaking change to the mobile app's session model.
+
+### Rate limits
+
+| Limiter | Limit | Applies to |
+| :--- | :--- | :--- |
+| `globalLimiter` | 1000 / 15 min | Every route |
+| `authLimiter` | 10 / 15 min | `/signup`, `/login` |
+| `apiLimiter` | 60 / 1 min | General API routes (trips, paths) |
+| `refreshLimiter` | 20 / 15 min | `/refresh` |
+| `ticketLimiter` | 60 / 15 min | `/ws-ticket` |
+
+`authLimiter` deliberately does **not** cover `/refresh` or `/ws-ticket` — normal operation refreshes roughly every 15 minutes and re-tickets roughly every 10 minutes per active trip, which would exhaust a 10/15min budget and 429 forever, breaking live tracking. The app also runs behind exactly one reverse-proxy hop (`app.set("trust proxy", 1)`); changing the proxy topology without updating this would make every client share one IP-keyed bucket, or let a spoofed `X-Forwarded-For` bypass rate limiting.
 
 ---
 

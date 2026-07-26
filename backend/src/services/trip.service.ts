@@ -1,5 +1,3 @@
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import prisma from "../prisma";
 import { getRandomColor } from "@/utils/randomColor";
 import { Destination } from "schema";
@@ -34,7 +32,7 @@ export const createTrip = async (
       members: {
         create: {
           userId,
-          color: getRandomColor(), // helper to assign a colour
+          color: getRandomColor(), // helper to assign a per-member color
         },
       },
       destinations:
@@ -126,14 +124,8 @@ export const getTripMembers = async (tripId: string) => {
   });
 };
 
-export const endTripById = async (tripId: string, userId: string) => {
-  const member = await prisma.tripMember.findUnique({
-    where: { tripId_userId: { tripId, userId } },
-    include: { trip: { select: { deletedAt: true } } },
-  });
-  if (!member || member.trip.deletedAt !== null) {
-    return null;
-  }
+// Membership and deletedAt are verified by requireTripMembership before this runs.
+export const endTripById = async (tripId: string) => {
   return prisma.trip.update({
     where: { id: tripId },
     data: { endedAt: new Date() },

@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import prisma from "../prisma";
+import { signAccessToken, signRefreshToken, signLegacyToken } from "./token.service";
 
 export const findUserByEmail = (email: string) => {
   return prisma.user.findUnique({ where: { email } });
@@ -33,6 +33,9 @@ export const updateLastLogin = (userId: string) => {
   });
 };
 
-export const generateToken = (userId: string) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET!, { expiresIn: "7d" });
-};
+export const generateTokenSet = (userId: string) => ({
+  /** Legacy alias — v1.0.4+5 reads response['token'] with a non-nullable cast. R2. */
+  token: signLegacyToken(userId),
+  accessToken: signAccessToken(userId),
+  refreshToken: signRefreshToken(userId),
+});

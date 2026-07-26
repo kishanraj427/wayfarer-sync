@@ -3,7 +3,16 @@ import { createServer, Server } from "http";
 import WebSocket from "ws";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = "your-secret-key";
+// Must be seeded BEFORE importing websocket.ts, which pulls in config/env.
+// This file previously hardcoded "your-secret-key" — the fallback the server
+// no longer has — so every handshake was rejected and the accept-path tests
+// timed out. They were failing for that reason, not for lack of a database:
+// prisma is mocked below and no DB is ever contacted.
+process.env.JWT_SECRET ??= "test-access-secret";
+process.env.JWT_REFRESH_SECRET ??= "r".repeat(32);
+process.env.DATABASE_URL ??= "postgresql://u:p@localhost:5433/db";
+
+const JWT_SECRET = process.env.JWT_SECRET!;
 
 // Setup mocks
 const mockFindUnique = mock(() => Promise.resolve<any>(null));
@@ -20,7 +29,7 @@ mock.module("../prisma", () => ({
   },
 }));
 
-import { initWebSocketServer } from "../websocket";
+const { initWebSocketServer } = await import("../websocket");
 
 describe("WebSocket Server Validation & Security", () => {
   let server: Server;
