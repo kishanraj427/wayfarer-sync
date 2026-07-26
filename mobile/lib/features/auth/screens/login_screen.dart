@@ -5,6 +5,7 @@ import '../../../core/constants/appRoutes.dart';
 import '../../../core/constants/appStrings.dart';
 import '../../../core/network/apiUrl.dart';
 import '../../../core/network/apiClient.dart';
+import '../../../core/network/authSession.dart';
 import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appTokens.dart';
 import '../../../core/util/text_input_rules.dart';
@@ -12,6 +13,17 @@ import '../../../core/widgets/contourBackground.dart';
 import '../../../core/widgets/primaryButton.dart';
 import '../../../core/widgets/inlineErrorBanner.dart';
 import '../providers/current_user_provider.dart';
+
+/// Wire-contract field names for /auth/login. `legacyTokenField` is kept so login
+/// still works against a rolled-back backend that only returns `token` (L1).
+class _LoginResponseWire {
+  _LoginResponseWire._();
+
+  static const String accessTokenField = 'accessToken';
+  static const String legacyTokenField = 'token';
+  static const String refreshTokenField = 'refreshToken';
+  static const String userField = 'user';
+}
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -25,6 +37,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // R4: explain a forced sign-out. Read once — consume clears it so it
+    // won't reappear on rebuild; a deliberate log-out shows nothing.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final reason = ref.read(authSessionProvider.notifier).consumeLogoutReason();
+      if (reason == LogoutReason.sessionExpired) {
+        setState(() => _errorMessage = AppStrings.sessionExpiredBanner);
+      }
+    });
+  }
   bool _obscurePassword = true;
 
   Future<void> _login() async {
@@ -48,17 +74,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         'password': _passwordController.text,
       });
 
-      final token = response['token'] as String;
-      await ref.read(authTokenProvider.notifier).setToken(token);
-      await persistCurrentUser(ref, response['user'] as Map<String, dynamic>);
+      // Defensive: accept the new pair, fall back to the legacy `token` field
+      // so a rolled-back backend still logs the user in. Never a hard cast (L1).
+      final access = (response[_LoginResponseWire.accessTokenField] as String?) ??
+          (response[_LoginResponseWire.legacyTokenField] as String?);
+      final refresh = response[_LoginResponseWire.refreshTokenField] as String?;
+      if (access == null) {
+        setState(() => _errorMessage = AppStrings.unknownError);
+        return;
+      }
+      if (refresh != null) {
+        await ref.read(authSessionProvider.notifier)
+            .setTokens(accessToken: access, refreshToken: refresh);
+      } else {
+        await ref.read(authSessionProvider.notifier).setAccessToken(access);
+      }
+      final user = response[_LoginResponseWire.userField];
+      if (user is Map<String, dynamic>) {
+        await persistCurrentUser(ref, user);
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.statusCode == 401 ? AppStrings.invalidCredentials : e.message;
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
-          if (e is ApiException) {
-            _errorMessage = e.message;
-          } else {
-            _errorMessage = e.toString().replaceFirst('Exception: ', '');
-          }
+          _errorMessage = AppStrings.unknownError;
         });
       }
     } finally {

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../constants/appRoutes.dart';
 import '../constants/appStrings.dart';
+import '../network/authSession.dart';
 import '../network/authTokenProvider.dart';
 import '../widgets/app_scaffold_shell.dart';
 import '../../features/tracking/screens/trip_map_screen.dart';
@@ -32,13 +33,15 @@ CustomTransitionPage<void> _transitionPage(GoRouterState state, Widget child) {
 
 
 final routerProvider = Provider<GoRouter>((ref) {
-  // Create a ValueNotifier to act as the refreshListenable for GoRouter
-  final listenable = ValueNotifier<String?>(ref.read(authTokenProvider));
+  // Create a ValueNotifier to act as the refreshListenable for GoRouter.
+  // It tracks *session presence*, not token validity — see redirect below.
+  final listenable =
+      ValueNotifier<bool>(ref.read(authSessionProvider).isAuthenticated);
 
-  // Listen to token changes to notify GoRouter of updates.
+  // Listen to session changes to notify GoRouter of updates.
   // Using ref.listen avoids rebuilding routerProvider itself, keeping GoRouter instance stable.
-  ref.listen<String?>(authTokenProvider, (previous, next) {
-    listenable.value = next;
+  ref.listen<AuthSession>(authSessionProvider, (previous, next) {
+    listenable.value = next.isAuthenticated;
   });
 
   // Dispose the ValueNotifier when the provider is destroyed
@@ -50,7 +53,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.login,
     refreshListenable: listenable,
     redirect: (BuildContext context, GoRouterState state) {
-      final isAuthenticated = ref.read(authTokenProvider) != null;
+      // Keyed on session presence, not token validity — an expired token with no
+      // network must still admit the user so GPS recording continues (R1).
+      final isAuthenticated = ref.read(authSessionProvider).isAuthenticated;
       final loggingIn = state.matchedLocation == AppRoutes.login ||
           state.matchedLocation == AppRoutes.signup;
 

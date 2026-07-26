@@ -81,6 +81,31 @@ The UI is driven entirely by a centralized theme so appearance can change in fut
 
 ---
 
+## 🔐 Authentication & Session Model
+
+*   **`AuthSession`** (`core/network/authSession.dart`) holds both `accessToken` and `refreshToken`. `isAuthenticated` is true if **either** is present — it deliberately does **not** check expiry, because an expired access token with no network is normal for an offline-first app and the router must still admit the user so GPS keeps recording.
+*   **Persistence** (`shared_preferences`): the access token is stored under the key `jwt_token` — unchanged from the pre-refresh-token release, so upgrading installs stay logged in — and the refresh token under the new key `refresh_token` (both named in `AppConstants`).
+*   **`RefreshCoordinator`** (`core/network/refreshCoordinator.dart`) is single-flight: concurrent callers share one in-flight refresh instead of racing. It triages every outcome into exactly one of `success`, `retryLater` (network error, timeout, 5xx, unparsable body), `sessionDead` (the server explicitly rejected the refresh token), or `needsExchange` (an in-place upgrade holding only a legacy access token, handled via `POST /auth/exchange`). Only `sessionDead` clears the session.
+*   **Proactive refresh** is triggered from three places, so an ordinary request almost never sees a `401`: app resume, connectivity restored, and pre-request whenever the access token is within 3 minutes of expiry (`AppConstants.proactiveRefreshWindow`). `ApiClient` also does a single reactive retry on an unexpected `401`.
+*   **WebSocket re-auth**: an open socket re-authenticates every 10 minutes (`AppConstants.wsReauthInterval`) by sending a fresh ticket — shorter than the server's own 15-minute deadline, so one missed cycle (a brief tunnel) doesn't drop the connection.
+*   Every outbound request carries `X-Client-Version` (`AppConstants.clientVersion`, currently `1.0.5`) so the backend can measure adoption and know when compatibility shims are safe to remove. Keep it in sync with `pubspec.yaml`'s `version:`.
+
+### The never-logged-out guarantee
+
+Once signed in, a user is **not** logged out by token expiry, a dropped connection, or a transient server error — only by:
+1. **Tapping Log out** (`LogoutReason.userInitiated`), or
+2. **The server explicitly rejecting the refresh token** — a `401` from `/auth/refresh` or `/auth/exchange` with `code: "INVALID_REFRESH"` (`LogoutReason.sessionExpired`).
+
+Everything else — offline, a 500, a bare 401, an HTML gateway page — is `retryLater` and keeps the session intact. See the [Backend README](../backend/README.md#the-invalid_refresh-contract) for the server side of this contract.
+
+### Conventions for contributors
+
+*   **Never a non-nullable cast on a server-controlled field.** Every field this refresh-token feature added is parsed as nullable-with-fallback (e.g. `parsed['accessToken'] as String?`, treated as `retryLater` if absent) — that's the only reason the backend change could be purely additive. The one exception is the pre-existing top-level `token` field from `login`/`signup`, which stays a non-nullable cast because the deployed app already does that and the backend guarantees the field is always present.
+*   **All user-facing copy lives in `AppStrings`** (`core/constants/appStrings.dart`). Never interpolate an exception object into a string shown to a user — `ApiException.toString()` exists for logs only; screens must read `.message`. This is why users used to see `ApiException (0): ...` on screen and no longer do.
+*   **No magic strings or numbers.** Wire field names, header names, storage keys, durations, and close codes are named constants or grouped in an `as-const`-style class with a derived type (see `_RefreshWire` in `refreshCoordinator.dart` and `AppConstants`), not inline literals.
+
+---
+
 ## 🚀 Installation & Developer Setup
 
 ### Prerequisites

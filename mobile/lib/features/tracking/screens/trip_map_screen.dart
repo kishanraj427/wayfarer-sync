@@ -220,7 +220,8 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(AppStrings.syncFailed(e))));
+        ).showSnackBar(SnackBar(content: Text(AppStrings.syncFailed(
+            e is ApiException ? e.message : AppStrings.unknownError))));
       }
     }
   }
@@ -261,7 +262,8 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
     } catch (e) {
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(content: Text(AppStrings.failedToEndTrip(e))),
+          SnackBar(content: Text(AppStrings.failedToEndTrip(
+              e is ApiException ? e.message : AppStrings.unknownError))),
         );
       }
     }
