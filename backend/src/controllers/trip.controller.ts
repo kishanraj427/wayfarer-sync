@@ -188,7 +188,7 @@ export const endTripById = async (req: AuthRequest, res: Response) => {
         success: false,
       });
     }
-    const trip = await tripService.endTripById(parsedTripId.data, userId);
+    const trip = await tripService.endTripById(parsedTripId.data);
     if (!trip) {
       return res.status(404).json({
         message: "Trip not found or you are not a member",

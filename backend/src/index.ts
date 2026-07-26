@@ -8,12 +8,17 @@ import tripRoutes from "./routes/trip.route";
 import pathRoutes from "./routes/path.route";
 import { createServer } from "http";
 import { initWebSocketServer } from "./websocket";
-import { globalLimiter, authLimiter, apiLimiter } from "./middleware/rateLimit.middleware";
+import { globalLimiter, apiLimiter } from "./middleware/rateLimit.middleware";
+import { errorHandler } from "./middleware/error.middleware";
+import { env } from "./config/env";
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+// Required so express-rate-limit sees real client IPs behind the host proxy.
+// Without it the entire user base shares one bucket. Spec §5.8.
+app.set("trust proxy", 1);
+const PORT = env.PORT;
 
 app.use(cors());
 app.use(express.json());
@@ -24,9 +29,11 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/auth", authRoutes); // limiters are per-route now
 app.use("/api/trip", apiLimiter, tripRoutes);
 app.use("/api/trip/:id/paths", apiLimiter, pathRoutes);
+
+app.use(errorHandler); // MUST be registered after all route mounts
 
 // Wrap your Express application within an HTTP Server core instance
 const server = createServer(app);

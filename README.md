@@ -74,10 +74,12 @@ For detailed setup instructions, see the [Backend README](backend/README.md).
     ```env
     DATABASE_URL="postgresql://wayfarer:wayfarer123@localhost:5433/wayfarer"
     JWT_SECRET="your_secure_jwt_secret_key"
+    JWT_REFRESH_SECRET="a_secret_of_at_least_32_characters"
     REDIS_HOST="localhost"
     REDIS_PORT="6379"
     PORT=3000
     ```
+    `JWT_REFRESH_SECRET` must be at least 32 characters and different from `JWT_SECRET` — the server refuses to boot otherwise (see [Backend README](backend/README.md)).
 
 3.  **Start PostgreSQL and Valkey Docker containers**:
     ```bash
@@ -132,3 +134,9 @@ For detailed setup instructions, see the [Mobile README](mobile/README.md).
     ```
 
 > **OSRM note**: The mobile app calls `router.project-osrm.org` for road routing — no API key required. Route fetching degrades gracefully when offline; GPS trails and markers still render.
+
+---
+
+## 🔐 Authentication
+
+The backend issues a short-lived **15-minute access token** and a **30-day sliding refresh token** on login/signup, plus a **30-second, per-trip WebSocket ticket** for live-tracking sockets. The mobile client refreshes proactively (on app resume, on connectivity restore, and just before a token expires) so an expired token is never user-visible — **users are not logged out by token expiry**, only by an explicit server rejection of the refresh token or a manual log out. See the [Backend README](backend/README.md#-authentication--tokens) and [Mobile README](mobile/README.md#-authentication--session-model) for the full contract.

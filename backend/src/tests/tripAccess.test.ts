@@ -71,28 +71,15 @@ describe("POST /trip/:id/end handler", () => {
     expect(mockMemberFindUnique).not.toHaveBeenCalled();
   });
 
-  test("returns 404 when the caller is not a member", async () => {
-    mockMemberFindUnique.mockImplementation(() => Promise.resolve(null));
-    const res = makeRes();
-    await endTripById({ params: { id: TRIP_ID }, userId: USER_ID } as any, res);
-    expect(res.statusCode).toBe(404);
-    expect(mockTripUpdate).not.toHaveBeenCalled();
-  });
-
-  test("returns 404 when the trip is deleted", async () => {
-    mockMemberFindUnique.mockImplementation(() =>
-      Promise.resolve({ id: "m1", trip: { deletedAt: new Date() } }),
-    );
-    const res = makeRes();
-    await endTripById({ params: { id: TRIP_ID }, userId: USER_ID } as any, res);
-    expect(res.statusCode).toBe(404);
-    expect(mockTripUpdate).not.toHaveBeenCalled();
-  });
+  // Membership and deletedAt checks (404, not 403, for a non-member; 404 for
+  // a soft-deleted trip) moved to requireTripMembership, which now runs
+  // ahead of this handler on the route (backend/src/routes/trip.route.ts).
+  // That behavior is exhaustively covered by
+  // backend/src/tests/tripMembership.test.ts. The controller's endTripById
+  // no longer performs its own membership lookup (trip.service.ts:129), so
+  // those two 404 cases no longer apply at this layer.
 
   test("sets endedAt and returns the updated trip for a member", async () => {
-    mockMemberFindUnique.mockImplementation(() =>
-      Promise.resolve({ id: "m1", trip: { deletedAt: null } }),
-    );
     const updated = { id: TRIP_ID, endedAt: new Date().toISOString() };
     mockTripUpdate.mockImplementation(() => Promise.resolve(updated));
 

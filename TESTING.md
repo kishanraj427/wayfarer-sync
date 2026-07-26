@@ -16,7 +16,8 @@ The backend uses **Bun Test** for unit testing and WebSocket connection simulati
    ```bash
    bun test
    ```
-   *This runs WebSocket connection security, soft-deletion verification, coordinate/batch-input Zod validation (`pathBatch.test.ts`), and schema validation tests using in-memory mocks.*
+   *This runs WebSocket connection security, soft-deletion verification, coordinate/batch-input Zod validation (`pathBatch.test.ts`), and schema validation tests using in-memory mocks. It also covers the refresh-token contract (`authEndpoints.test.ts`, `token.service.test.ts`, `env.test.ts`), trip-membership 404 behavior (`tripMembership.test.ts`, `tripAccess.test.ts`), and old-client compatibility (`contract.v1.0.4.test.ts`).*
+   *Current baseline: **90 pass / 3 fail**. The 3 failures are `websocket.test.ts` handshake timeouts — that suite requires a live Postgres on `:5433` (via `docker-compose up -d`) and fails without it.*
 
 ### Mobile Test Suite
 The Flutter mobile client uses standard unit/widget tests to verify authentication token persistence, local SQLite Drift database operations, per-user live-trail map state (`map_state_provider_test.dart`), and the trip-share text builder (`trip_share_test.dart`).
@@ -28,6 +29,7 @@ The Flutter mobile client uses standard unit/widget tests to verify authenticati
    ```bash
    flutter test
    ```
+   *Current baseline: **56 pass / 1 fail**. The 1 failure is a pre-existing, unrelated failure in `motion_test.dart` — not caused by the refresh-token work.*
 3. Run static code analysis:
    ```bash
    flutter analyze
@@ -133,6 +135,48 @@ The Flutter mobile client uses standard unit/widget tests to verify authenticati
    * The socket returns an error frame:
      `{"type":"error","payload":{"message":"Malformed payload frame structure"}}`
    * Confirm that no out-of-bound point is saved to Postgres.
+
+---
+
+### Scenario D: Token expiry never logs you out
+*Goal: Confirm access-token expiry alone never triggers a logout.*
+
+1. Log in, open a trip map, then leave the app backgrounded for 20 minutes (past the 15-minute access-token TTL).
+2. Bring the app back to the foreground.
+3. **Expected Results:**
+   * The app resumes straight into the map — no login prompt.
+   * Nothing user-visible indicates a refresh happened (the app-resume refresh trigger in `RefreshCoordinator` is silent).
+
+---
+
+### Scenario E: Refresh while offline (the acceptance test)
+*Goal: Verify GPS keeps recording and the user stays logged in when the access token expires with no network at all.*
+
+1. Log in and open the map. Disable networking (Wi-Fi and cellular).
+2. Wait past the 15-minute access-token expiry, using GPS spoofing to keep the trail moving.
+3. **Expected Results:**
+   * The app stays logged in and GPS keeps recording to the local Drift database.
+   * The UI shows "You're offline. Your trip is still being recorded and will sync automatically." — never a sign-out.
+4. Re-enable networking.
+5. **Expected Result:** tokens refresh (the connectivity-restored trigger fires) and the queued points sync via `POST /trip/:id/paths/batch`.
+
+---
+
+### Scenario F: WebSocket re-auth
+*Goal: Verify the ticketed WebSocket's 15-minute re-auth deadline and 60-second sweep behave as designed.*
+
+1. Open a trip map and leave it connected for 25 minutes.
+2. **Expected Result:** live tracking keeps working across at least two re-auth cycles (the client sends `auth_refresh` with a fresh ticket every 10 minutes; each `auth_ok` reply extends the server's 15-minute deadline).
+3. In the database, delete the user's `TripMember` row for that trip, then wait for one more re-auth cycle.
+4. **Expected Result:** the server's membership re-check on `auth_refresh` fails, the socket closes with code `4001`, and live updates stop.
+
+---
+
+### Scenario G: Old-client compatibility gate
+*Goal: Guard the v1.0.4+5 contract before every deploy — see `backend/README.md` for the token model this protects.*
+
+1. Run the Task 16 checklist (`backend/src/tests/contract.v1.0.4.test.ts`, plus a manual pass against a v1.0.4+5 build) against the new backend.
+2. **Expected Result:** `login`/`signup` responses still return a top-level `token` field, no auth response has gained a `data` key, and a legacy `?token=&tripId=` WebSocket connection still upgrades and streams normally.
 
 ---
 
