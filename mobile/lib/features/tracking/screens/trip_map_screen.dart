@@ -22,6 +22,7 @@ import '../providers/connectivityProvider.dart';
 import '../providers/liveTrackingProviders.dart';
 import '../providers/mapStateProvider.dart';
 import '../repositories/pathRepository.dart';
+import '../services/locationPermissionHandler.dart';
 import '../services/locationTrackingService.dart';
 import '../services/osrmRoutingService.dart';
 import '../services/syncService.dart';
@@ -65,6 +66,15 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
   ProviderSubscription<AsyncValue<MemberLocationUpdate>>?
   _liveLocationSubscription;
 
+  // Re-checks location access whenever the app comes back to the foreground,
+  // so turning GPS off mid-trip — or returning from the settings screen after
+  // turning it on — is noticed instead of ignored until the next cold start.
+  AppLifecycleListener? _lifecycle;
+
+  // True while our own location prompt is on screen, so we only dismiss that
+  // one and never someone else's snackbar.
+  bool _showingLocationPrompt = false;
+
   @override
   void initState() {
     super.initState();
@@ -73,7 +83,8 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
       // callbacks can use them without touching ref.
       _trackingService = ref.read(locationTrackingServiceProvider);
       _routingService = ref.read(osrmRoutingServiceProvider);
-      _trackingService.startTracking(widget.tripId, widget.currentUserId);
+      _beginTracking();
+      _lifecycle = AppLifecycleListener(onResume: _beginTracking);
       _fetchTripDetails();
       _loadHistoricalPaths();
 
@@ -166,9 +177,57 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
     }
   }
 
+  /// Starts tracking, and tells the user if it could not start.
+  ///
+  /// Safe to call repeatedly — it runs on every resume, and re-checking is the
+  /// whole point: location can be switched off long after the first launch.
+  Future<void> _beginTracking() async {
+    // Always re-check, even while tracking. An open position stream does NOT
+    // prove location is still available: the user can switch GPS off while the
+    // app is backgrounded, and the subscription stays alive but silent.
+    final access = await LocationPermissionHandler.check();
+
+    if (access == LocationAccess.granted) {
+      if (!_trackingService.isTracking) {
+        await _trackingService.startTracking(
+          widget.tripId,
+          widget.currentUserId,
+        );
+      }
+      if (!mounted) return;
+      // Clear our own prompt if the user just fixed it and came back.
+      if (_showingLocationPrompt) {
+        _showingLocationPrompt = false;
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
+      return;
+    }
+
+    // Access was lost — drop the stale stream so isTracking reflects reality.
+    _trackingService.stopTracking();
+    if (!mounted) return;
+    _showingLocationPrompt = true;
+
+    // Not a toast: the trip is silently not being recorded, so this stays put
+    // until the user acts on it.
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(access.message),
+          duration: const Duration(days: 1),
+          action: SnackBarAction(
+            label: access.actionLabel,
+            onPressed: () => LocationPermissionHandler.openSettingsFor(access),
+          ),
+        ),
+      );
+  }
+
   @override
   void dispose() {
     // Use the pre-saved service reference — never call ref.read() here.
+    _lifecycle?.dispose();
     _liveLocationSubscription?.close();
     _trackingService.stopTracking();
     _mapController.dispose();

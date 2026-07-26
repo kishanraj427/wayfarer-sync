@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
+import 'package:wayfarer_sync_mobile/features/tracking/services/locationPermissionHandler.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -125,16 +126,21 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   Future<void> _locateMe() async {
     setState(() => _isLocating = true);
     try {
-      // Ensure permission is granted before calling the hardware
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
+      // Checks the GPS toggle as well as permission — this used to check only
+      // permission, so with location switched off it fell through to a generic
+      // failure instead of saying what was actually wrong.
+      final access = await LocationPermissionHandler.check();
+      if (access != LocationAccess.granted) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(AppStrings.locationPermissionRequired)),
+            SnackBar(
+              content: Text(access.message),
+              action: SnackBarAction(
+                label: access.actionLabel,
+                onPressed: () =>
+                    LocationPermissionHandler.openSettingsFor(access),
+              ),
+            ),
           );
         }
         return;

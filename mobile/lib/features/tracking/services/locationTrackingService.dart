@@ -18,14 +18,15 @@ class LocationTrackingService {
 
   LocationTrackingService(this._ref);
 
-  /// Starts listening to the hardware GPS sensor and streaming updates
-  Future<void> startTracking(String tripId, String userId) async {
+  /// Starts listening to the hardware GPS sensor and streaming updates.
+  ///
+  /// Returns why it could not start, so the caller can tell the user and offer
+  /// the right settings screen. Previously this failed with only a `print`,
+  /// leaving the trip silently un-recorded.
+  Future<LocationAccess> startTracking(String tripId, String userId) async {
     // 1. Verify permissions before touching hardware
-    final hasPermission = await LocationPermissionHandler.requestPermission();
-    if (!hasPermission) {
-      print("Location tracking aborted: Permissions missing.");
-      return;
-    }
+    final access = await LocationPermissionHandler.check();
+    if (access != LocationAccess.granted) return access;
 
     // 2. Configure hardware sensor tracking criteria
     const locationSettings = LocationSettings(
@@ -34,12 +35,18 @@ class LocationTrackingService {
     );
 
     // 3. Open the continuous hardware position wire
+    _positionStreamSubscription?.cancel();
     _positionStreamSubscription = Geolocator.getPositionStream(
       locationSettings: locationSettings,
     ).listen((Position position) async {
       await _handleIncomingPosition(tripId, userId, position);
     });
+
+    return LocationAccess.granted;
   }
+
+  /// True when a position stream is currently open.
+  bool get isTracking => _positionStreamSubscription != null;
 
   /// Directs a fresh GPS point into both the local SQLite cache and the network pipe
   Future<void> _handleIncomingPosition(String tripId, String userId, Position position) async {

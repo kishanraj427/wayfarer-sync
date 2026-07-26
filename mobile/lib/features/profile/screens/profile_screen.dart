@@ -64,6 +64,30 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ],
           ),
+          // Account sits ABOVE trip history: history is unbounded, so anything
+          // below it gets pushed off-screen once a user has a few trips.
+          const SizedBox(height: AppSpace.lg),
+          const SectionHeader(label: AppStrings.account),
+          SettingRow(
+            icon: Icons.dark_mode_outlined,
+            label: AppStrings.darkMode,
+            trailing: Switch(
+              value: isDark,
+              onChanged: (value) => ref
+                  .read(themeModeProvider.notifier)
+                  .setMode(value ? ThemeMode.dark : ThemeMode.light),
+            ),
+          ),
+          const SizedBox(height: AppSpace.sm),
+          SettingRow(
+            icon: Icons.logout,
+            label: AppStrings.logOut,
+            isDestructive: true,
+            // userInitiated, not sessionExpired — that banner is only for forced sign-outs (R4).
+            onTap: () => ref
+                .read(authSessionProvider.notifier)
+                .clear(reason: LogoutReason.userInitiated),
+          ),
           const SizedBox(height: AppSpace.lg),
           const SectionHeader(label: AppStrings.tripHistory),
           if (endedTrips.isEmpty)
@@ -89,28 +113,6 @@ class ProfileScreen extends ConsumerWidget {
                 ).appEntrance(context, index: entry.key),
               ),
             ),
-          const SizedBox(height: AppSpace.lg),
-          const SectionHeader(label: AppStrings.account),
-          SettingRow(
-            icon: Icons.dark_mode_outlined,
-            label: AppStrings.darkMode,
-            trailing: Switch(
-              value: isDark,
-              onChanged: (value) => ref
-                  .read(themeModeProvider.notifier)
-                  .setMode(value ? ThemeMode.dark : ThemeMode.light),
-            ),
-          ),
-          const SizedBox(height: AppSpace.sm),
-          SettingRow(
-            icon: Icons.logout,
-            label: AppStrings.logOut,
-            isDestructive: true,
-            // userInitiated, not sessionExpired — that banner is only for forced sign-outs (R4).
-            onTap: () => ref
-                .read(authSessionProvider.notifier)
-                .clear(reason: LogoutReason.userInitiated),
-          ),
         ],
       ),
     );

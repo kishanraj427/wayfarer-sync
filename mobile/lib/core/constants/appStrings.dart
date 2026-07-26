@@ -141,6 +141,16 @@ class AppStrings {
   static const String tripIdCopied = 'Trip ID copied to clipboard.';
   static const String locationPermissionRequired =
       'Location permission is required.';
+
+  // --- Location access (re-checked every time the map opens or resumes) ---
+  static const String locationServicesOff =
+      "Location is turned off, so your trip isn't being recorded.";
+  static const String locationPermissionDenied =
+      "Location permission is needed to record your trip.";
+  static const String locationPermissionBlocked =
+      "Location permission is blocked, so your trip isn't being recorded.";
+  static const String turnOnLocation = 'Turn on';
+  static const String openSettings = 'Settings';
   static const String enterTripName = 'Please enter a trip name.';
   static const String selectDestination =
       'Please select or pin a destination location.';
