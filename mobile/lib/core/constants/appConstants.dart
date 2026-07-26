@@ -1,14 +1,11 @@
-/// Central home for behavioral / configuration constants used across the app.
-///
-/// User-facing copy lives in [AppStrings]; backend endpoints live in `ApiUrl`;
-/// design tokens (spacing, radius, colors) live in the theme layer. This file
-/// holds durations, storage keys, map defaults, tracking thresholds, and the
-/// external service URLs that were previously scattered as inline literals.
+/// Behavioral/configuration constants: durations, storage keys, map defaults,
+/// tracking thresholds. Copy lives in [AppStrings]; endpoints live in `ApiUrl`.
 class AppConstants {
   AppConstants._();
 
   // --- Persistence keys (SharedPreferences) ---
   static const String jwtTokenKey = 'jwt_token';
+  static const String refreshTokenKey = 'refresh_token';
   static const String currentUserKey = 'current_user';
   static const String themeModeKey = 'theme_mode';
 
@@ -19,6 +16,23 @@ class AppConstants {
   /// Sentinel status code for failures that never reached the server
   /// (no connection, timeout, DNS lookup failed).
   static const int noResponseStatus = 0;
+
+  /// Sent as `X-Client-Version` so the server can measure adoption. Must stay
+  /// in sync with `version:` in pubspec.yaml.
+  static const String clientVersion = '1.0.5';
+
+  /// Refresh pre-emptively once the access token is this close to expiring,
+  /// so ordinary requests never see a 401 in the first place.
+  static const Duration proactiveRefreshWindow = Duration(minutes: 3);
+
+  /// How often an open socket re-authenticates. Deliberately shorter than the
+  /// server's own auth window so one missed cycle — a brief tunnel — does not
+  /// close the connection.
+  static const Duration wsReauthInterval = Duration(minutes: 10);
+
+  /// Server close code meaning "your socket auth expired". Wire protocol
+  /// shared with `backend/src/websocket.ts`; do not change independently.
+  static const int wsAuthExpiredCloseCode = 4001;
 
   // --- Durations & animations ---
   static const Duration searchDebounce = Duration(milliseconds: 500);
@@ -47,11 +61,8 @@ class AppConstants {
   /// Cap on retained GPS trail points per member to bound memory.
   static const int maxTrailPoints = 500;
 
-  /// A trail is split into separate polyline segments when two consecutive
-  /// points jump farther than this (meters). Consecutive live points are only
-  /// [locationDistanceFilterMeters] apart, so a gap this large is a teleport —
-  /// a stale/out-of-order fix (e.g. a default emulator location) — and must not
-  /// be drawn as a straight line across the map.
+  /// Trail split threshold (meters) between consecutive points: a jump this large
+  /// is a teleport (stale/out-of-order fix), not real movement — don't draw it.
   static const double maxTrailSegmentMeters = 1000;
 
   // --- Trip overflow-menu action ids ---

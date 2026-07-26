@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/appRoutes.dart';
 import '../../../core/constants/appStrings.dart';
 import '../../../core/motion/motion.dart';
+import '../../../core/network/authSession.dart';
 import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTokens.dart';
@@ -105,7 +106,10 @@ class ProfileScreen extends ConsumerWidget {
             icon: Icons.logout,
             label: AppStrings.logOut,
             isDestructive: true,
-            onTap: () => ref.read(authTokenProvider.notifier).clearToken(),
+            // userInitiated, not sessionExpired — that banner is only for forced sign-outs (R4).
+            onTap: () => ref
+                .read(authSessionProvider.notifier)
+                .clear(reason: LogoutReason.userInitiated),
           ),
         ],
       ),

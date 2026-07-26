@@ -1,59 +1,70 @@
-import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/appConstants.dart';
+import 'authSession.dart';
+import 'jwtClaims.dart';
 
-class AuthTokenNotifier extends StateNotifier<String?> {
-  // ignore: use_super_parameters
-  AuthTokenNotifier(String? initialToken) : super(initialToken);
+class AuthSessionNotifier extends StateNotifier<AuthSession> {
+  AuthSessionNotifier(super.initial);
 
-  static const tokenKey = AppConstants.jwtTokenKey;
-  // Persisted current-user cache key (owned here so logout can clear it without
-  // a circular import back to the user provider).
+  static const accessTokenKey = AppConstants.jwtTokenKey;      // unchanged: upgrades in place
+  static const refreshTokenKey = AppConstants.refreshTokenKey;
   static const currentUserPrefsKey = AppConstants.currentUserKey;
 
-  Future<void> setToken(String token) async {
+  /// Public read of the current session (`state` is `@protected`, so callers
+  /// like `RefreshCoordinator` must go through this instead).
+  AuthSession get session => state;
+
+  LogoutReason? _pendingLogoutReason;
+
+  Future<void> setTokens({required String accessToken, required String refreshToken}) async {
+    state = AuthSession(accessToken: accessToken, refreshToken: refreshToken);
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(tokenKey, token);
-      state = token;
-    } catch (e) {
-      // ignore: avoid_print
-      print('Error saving auth token: $e');
+      await prefs.setString(accessTokenKey, accessToken);
+      await prefs.setString(refreshTokenKey, refreshToken);
+    } catch (_) {
+      // State is already updated; a failed write only costs persistence
+      // across a restart. Never surfaced as a logout (R1).
     }
   }
 
-  Future<void> clearToken() async {
+  Future<void> setAccessToken(String accessToken) async {
+    state = state.copyWith(accessToken: accessToken);
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(tokenKey);
+      await prefs.setString(accessTokenKey, accessToken);
+    } catch (_) {}
+  }
+
+  Future<void> clear({required LogoutReason reason}) async {
+    _pendingLogoutReason = reason;
+    state = AuthSession.empty;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(accessTokenKey);
+      await prefs.remove(refreshTokenKey);
       await prefs.remove(currentUserPrefsKey);
-      state = null;
-    } catch (e) {
-      // ignore: avoid_print
-      print('Error clearing auth token: $e');
-    }
+    } catch (_) {}
   }
 
-  bool get isAuthenticated => state != null;
+  /// Read once by the login screen to explain why the user is here (R4).
+  LogoutReason? consumeLogoutReason() {
+    final reason = _pendingLogoutReason;
+    _pendingLogoutReason = null;
+    return reason;
+  }
 }
 
-final authTokenProvider = StateNotifierProvider<AuthTokenNotifier, String?>((ref) {
-  return AuthTokenNotifier(null);
+final authSessionProvider =
+    StateNotifierProvider<AuthSessionNotifier, AuthSession>((ref) {
+  return AuthSessionNotifier(AuthSession.empty);
 });
 
+/// Kept for existing call sites. Reads userId from the access token payload —
+/// works offline and even when the token has expired.
 final currentUserIdProvider = Provider<String?>((ref) {
-  final token = ref.watch(authTokenProvider);
-  if (token == null) return null;
-  try {
-    final parts = token.split('.');
-    if (parts.length != 3) return null;
-    var normalized = base64Url.normalize(parts[1]);
-    final payloadString = utf8.decode(base64Url.decode(normalized));
-    final payload = jsonDecode(payloadString) as Map<String, dynamic>;
-    return payload['userId'] as String?;
-  } catch (e) {
-    return null;
-  }
+  final token = ref.watch(authSessionProvider).accessToken;
+  return token == null ? null : userIdFromToken(token);
 });

@@ -13,6 +13,19 @@ import '../../../core/widgets/primaryButton.dart';
 import '../../../core/widgets/inlineErrorBanner.dart';
 import '../providers/current_user_provider.dart';
 
+/// Wire-contract field names for the /auth/signup response body. NOT
+/// app-internal choices — must match the backend byte-for-byte.
+/// `legacyTokenField` is the 7-day alias kept so the app still logs in
+/// against a rolled-back backend that only returns `token` (L1).
+class _SignupResponseWire {
+  _SignupResponseWire._();
+
+  static const String accessTokenField = 'accessToken';
+  static const String legacyTokenField = 'token';
+  static const String refreshTokenField = 'refreshToken';
+  static const String userField = 'user';
+}
+
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
 
@@ -57,17 +70,29 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         'password': _passwordController.text,
       });
 
-      final token = response['token'] as String;
-      await ref.read(authTokenProvider.notifier).setToken(token);
-      await persistCurrentUser(ref, response['user'] as Map<String, dynamic>);
+      // Defensive: accept the new pair, fall back to the legacy `token` field
+      // so a rolled-back backend still logs the user in. Never a hard cast (L1).
+      final access = (response[_SignupResponseWire.accessTokenField] as String?) ??
+          (response[_SignupResponseWire.legacyTokenField] as String?);
+      final refresh = response[_SignupResponseWire.refreshTokenField] as String?;
+      if (access == null) {
+        setState(() => _errorMessage = AppStrings.unknownError);
+        return;
+      }
+      if (refresh != null) {
+        await ref.read(authSessionProvider.notifier)
+            .setTokens(accessToken: access, refreshToken: refresh);
+      } else {
+        await ref.read(authSessionProvider.notifier).setAccessToken(access);
+      }
+      final user = response[_SignupResponseWire.userField];
+      if (user is Map<String, dynamic>) {
+        await persistCurrentUser(ref, user);
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
-          if (e is ApiException) {
-            _errorMessage = e.message;
-          } else {
-            _errorMessage = e.toString().replaceFirst('Exception: ', '');
-          }
+          _errorMessage = e is ApiException ? e.message : AppStrings.unknownError;
         });
       }
     } finally {

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/appRoutes.dart';
 import '../../../core/constants/appStrings.dart';
 import '../../../core/motion/motion.dart';
+import '../../../core/network/apiClient.dart';
 import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTokens.dart';
@@ -142,7 +143,10 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
       }
     } catch (error) {
       messenger.showSnackBar(
-        SnackBar(content: Text(AppStrings.failedToJoinTrip(error))),
+        SnackBar(
+          content: Text(AppStrings.failedToJoinTrip(
+              error is ApiException ? error.message : AppStrings.unknownError)),
+        ),
       );
     }
   }
@@ -229,7 +233,8 @@ class _Dashboard extends StatelessWidget {
       await ref.read(tripsProvider.notifier).endTrip(trip.id);
       messenger.showSnackBar(const SnackBar(content: Text(AppStrings.tripEnded)));
     } catch (error) {
-      messenger.showSnackBar(SnackBar(content: Text(AppStrings.failedToEndTrip(error))));
+      messenger.showSnackBar(SnackBar(content: Text(AppStrings.failedToEndTrip(
+          error is ApiException ? error.message : AppStrings.unknownError))));
     }
   }
 }

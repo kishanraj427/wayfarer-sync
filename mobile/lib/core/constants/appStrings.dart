@@ -44,6 +44,50 @@ class AppStrings {
   static const String unknownError =
       'An unexpected error occurred. Please try again.';
 
+  // --- Auth session (R4) ---
+  static const String sessionExpiredBanner =
+      "You've been signed out. Please sign in again.";
+  static const String invalidCredentials = 'Incorrect email or password.';
+  static const String rateLimitedError =
+      'Too many attempts. Please try again in a few minutes.';
+  static const String offlineStillRecording =
+      "You're offline. Your trip is still being recorded and will sync automatically.";
+  static const String reconnectingLiveTracking = 'Reconnecting live tracking…';
+
+  // --- Request failures, by outcome ---
+  static const String invalidRequest =
+      'Please check the details you entered and try again.';
+  static const String noAccess = "You don't have access to this.";
+  static const String notFound =
+      "We couldn't find that. It may have been deleted.";
+  static const String alreadyExists =
+      'An account with this email already exists. Try signing in instead.';
+
+  /// The single place an HTTP status becomes something a person can read.
+  ///
+  /// The server's own `error` text is developer-facing ("tripId must be a
+  /// valid UUID", "Not authenticated") and must never reach the screen (R4).
+  static String messageForStatus(int statusCode) {
+    switch (statusCode) {
+      case 0:
+        return networkError;
+      case 400:
+      case 422:
+        return invalidRequest;
+      case 401:
+      case 403:
+        return noAccess;
+      case 404:
+        return notFound;
+      case 409:
+        return alreadyExists;
+      case 429:
+        return rateLimitedError;
+      default:
+        return statusCode >= 500 ? serverError : unknownError;
+    }
+  }
+
   // --- Navigation ---
   static const String navTrips = 'Trips';
   static const String navProfile = 'Profile';
@@ -58,7 +102,10 @@ class AppStrings {
   static const String endTripDialogTitle = 'End this trip?';
   static const String endTripDialogBody = 'Live tracking will stop for everyone.';
   static const String tripEnded = 'Trip ended.';
-  static String failedToEndTrip(Object error) => 'Failed to end trip: $error';
+  // Takes an already-friendly MESSAGE (ApiException.message), never the
+  // exception object. Interpolating an Object renders "ApiException (0): ..."
+  // to the user. R4.
+  static String failedToEndTrip(String message) => 'Could not end the trip. $message';
 
   // --- Trips screen ---
   static const String myTrips = 'My trips';
@@ -67,7 +114,7 @@ class AppStrings {
   static const String newTrip = 'New trip';
   static const String joinedTripSuccess =
       'Joined trip. Open it to start tracking.';
-  static String failedToJoinTrip(Object error) => 'Failed to join trip: $error';
+  static String failedToJoinTrip(String message) => 'Could not join the trip. $message';
   static const String statActive = 'Active';
   static const String statTravelers = 'Travelers';
   static const String statDestinations = 'Dest.';
@@ -97,14 +144,14 @@ class AppStrings {
   static const String enterTripName = 'Please enter a trip name.';
   static const String selectDestination =
       'Please select or pin a destination location.';
-  static String couldNotGetLocation(Object error) =>
-      'Could not get location: $error';
-  static String failedToStartTrip(Object error) => 'Failed to start trip: $error';
+  static String couldNotGetLocation(String message) =>
+      'Could not get your location. $message';
+  static String failedToStartTrip(String message) => 'Could not start the trip. $message';
 
   // --- Trip map screen ---
   static const String startingSync = 'Starting synchronization...';
   static const String syncComplete = 'Synchronization complete.';
-  static String syncFailed(Object error) => 'Sync failed: $error';
+  static String syncFailed(String message) => 'Sync did not complete. $message';
   static const String currentLocationUnavailable =
       'Current location not available yet.';
   static String destinationSnack(String name) => 'Destination: $name';

@@ -13,6 +13,7 @@ import '../../../core/constants/appMotion.dart';
 import '../../../core/constants/appRoutes.dart';
 import '../../../core/constants/appStrings.dart';
 import '../../../core/motion/motion.dart';
+import '../../../core/network/apiClient.dart';
 import '../../../core/network/authTokenProvider.dart';
 import '../../../core/theme/appSemanticColors.dart';
 import '../../../core/theme/appTheme.dart';
@@ -160,7 +161,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(AppStrings.couldNotGetLocation(e))));
+        ).showSnackBar(SnackBar(content: Text(AppStrings.couldNotGetLocation(
+            e is ApiException ? e.message : AppStrings.unknownError))));
       }
     } finally {
       if (mounted) setState(() => _isLocating = false);
@@ -217,7 +219,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(AppStrings.failedToStartTrip(e))));
+        ).showSnackBar(SnackBar(content: Text(AppStrings.failedToStartTrip(
+            e is ApiException ? e.message : AppStrings.unknownError))));
       }
     } finally {
       if (mounted) {
