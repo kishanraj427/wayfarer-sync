@@ -23,6 +23,7 @@ import '../providers/liveTrackingProviders.dart';
 import '../providers/mapStateProvider.dart';
 import '../repositories/pathRepository.dart';
 import '../services/locationPermissionHandler.dart';
+import '../widgets/locationAccessWatcher.dart';
 import '../services/locationTrackingService.dart';
 import '../services/osrmRoutingService.dart';
 import '../services/syncService.dart';
@@ -70,10 +71,6 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
   // so turning GPS off mid-trip — or returning from the settings screen after
   // turning it on — is noticed instead of ignored until the next cold start.
   AppLifecycleListener? _lifecycle;
-
-  // True while our own location prompt is on screen, so we only dismiss that
-  // one and never someone else's snackbar.
-  bool _showingLocationPrompt = false;
 
   @override
   void initState() {
@@ -194,34 +191,13 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
           widget.currentUserId,
         );
       }
-      if (!mounted) return;
-      // Clear our own prompt if the user just fixed it and came back.
-      if (_showingLocationPrompt) {
-        _showingLocationPrompt = false;
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      }
       return;
     }
 
     // Access was lost — drop the stale stream so isTracking reflects reality.
     _trackingService.stopTracking();
     if (!mounted) return;
-    _showingLocationPrompt = true;
-
-    // Not a toast: the trip is silently not being recorded, so this stays put
-    // until the user acts on it.
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(access.message),
-          duration: const Duration(days: 1),
-          action: SnackBarAction(
-            label: access.actionLabel,
-            onPressed: () => LocationPermissionHandler.openSettingsFor(access),
-          ),
-        ),
-      );
+    await showLocationAccessDialog(context, access);
   }
 
   @override

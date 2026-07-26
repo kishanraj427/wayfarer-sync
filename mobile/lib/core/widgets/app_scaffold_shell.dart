@@ -5,6 +5,7 @@ import '../constants/appMotion.dart';
 import '../constants/appStrings.dart';
 import '../motion/motion.dart';
 import '../theme/appSemanticColors.dart';
+import '../../features/tracking/widgets/locationAccessWatcher.dart';
 
 class AppScaffoldShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -12,7 +13,10 @@ class AppScaffoldShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // Wraps every signed-in screen, so "location is off" is noticed on app
+    // open and on resume — not only on the map, which the user may never open.
+    return LocationAccessWatcher(
+      child: Scaffold(
       body: motionEnabled(context)
           ? PageTransitionSwitcher(
               duration: AppMotion.base,
@@ -47,6 +51,7 @@ class AppScaffoldShell extends StatelessWidget {
             label: AppStrings.navProfile,
           ),
         ],
+      ),
       ),
     );
   }

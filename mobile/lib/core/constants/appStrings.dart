@@ -151,6 +151,8 @@ class AppStrings {
       "Location permission is blocked, so your trip isn't being recorded.";
   static const String turnOnLocation = 'Turn on';
   static const String openSettings = 'Settings';
+  static const String locationNeededTitle = 'Location needed';
+  static const String notNow = 'Not now';
   static const String enterTripName = 'Please enter a trip name.';
   static const String selectDestination =
       'Please select or pin a destination location.';
